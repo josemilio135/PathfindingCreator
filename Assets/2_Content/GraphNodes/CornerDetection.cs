@@ -4,7 +4,30 @@ using UnityEngine;
 public static class CornerDetection
 {
     static readonly Collider[] _results = new Collider[64];
+    static Vector3[] GetCorners(BoxCollider box)
+    {
+        Transform t = box.transform;
 
+        Vector3 center = box.center;
+        Vector3 half = box.size * 0.5f;
+
+        Vector3[] localCorners =
+        {
+            center + new Vector3( half.x, 0f,  half.z),
+            center + new Vector3( half.x, 0f, -half.z),
+            center + new Vector3(-half.x, 0f,  half.z),
+            center + new Vector3(-half.x, 0f, -half.z),
+        };
+
+        Vector3[] worldCorners = new Vector3[4];
+
+        for (int i = 0; i < localCorners.Length; i++)
+        {
+            worldCorners[i] = t.TransformPoint(localCorners[i]);
+        }
+
+        return worldCorners;
+    }
     public static IEnumerable<Vector3> GetVisibleCorners(Vector3 origin,
                                                          float viewRange,
                                                          float cornerOffset,
@@ -44,28 +67,40 @@ public static class CornerDetection
         }
     }
 
-    static Vector3[] GetCorners(BoxCollider box)
+    
+    public static List<Vector3> GetMergedCorners(
+    IEnumerable<Vector3> points,
+    float mergeDistance)
     {
-        Transform t = box.transform;
+        List<Vector3> mergedPoints = new();
 
-        Vector3 center = box.center;
-        Vector3 half = box.size * 0.5f;
-
-        Vector3[] localCorners =
+        foreach (Vector3 point in points)
         {
-            center + new Vector3( half.x, 0f,  half.z),
-            center + new Vector3( half.x, 0f, -half.z),
-            center + new Vector3(-half.x, 0f,  half.z),
-            center + new Vector3(-half.x, 0f, -half.z),
-        };
+            bool merged = false;
 
-        Vector3[] worldCorners = new Vector3[4];
+            for (int i = 0; i < mergedPoints.Count; i++)
+            {
+                bool isInMergeRange =
+                    Perception.IsInRange(
+                        mergedPoints[i],
+                        point,
+                        mergeDistance);
 
-        for (int i = 0; i < localCorners.Length; i++)
-        {
-            worldCorners[i] = t.TransformPoint(localCorners[i]);
+                if (!isInMergeRange) continue;
+
+                mergedPoints[i] =
+                    (mergedPoints[i] + point) * 0.5f;
+
+                merged = true;
+                break;
+            }
+
+            if (!merged)
+            {
+                mergedPoints.Add(point);
+            }
         }
 
-        return worldCorners;
+        return mergedPoints;
     }
 }

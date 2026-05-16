@@ -13,19 +13,14 @@ public class NodeViewer : MonoBehaviour
     [SerializeField, Min(0.01f)] float _nodeMergeDistance = 1f;
 
     [Header("Debug")]
-
-    readonly Collider[] _results = new Collider[64];
     readonly List<GameObject> _spawnedNodes = new();
 
 
-    public LayerMask ObstacleMask => _obstacleMask;
     public float ViewRange => _viewRange;
-    public float CornerOffset => _cornerOffset;
-    public Collider[] Results => _results;
+    public float NodeMergeDistance => _nodeMergeDistance;
     public bool IsClean => _spawnedNodes.Count == 0;
 
-
-    public void BakeCorners()
+    public void BakeNodes()
     {
         if (_prefab == null)
         {
@@ -33,42 +28,15 @@ public class NodeViewer : MonoBehaviour
             return;
         }
 
-        ClearCorners();
+        ClearNodes();
 
-        List<Vector3> mergedPoints = new();
-
-        foreach (Vector3 point in GetVisibleCorners())
-        {
-            bool merged = false;
-
-            for (int i = 0; i < mergedPoints.Count; i++)
-            {
-                float sqrDistance =
-                    (mergedPoints[i] - point).sqrMagnitude;
-
-                if (sqrDistance >
-                    _nodeMergeDistance * _nodeMergeDistance)
-                    continue;
-
-                mergedPoints[i] =
-                    (mergedPoints[i] + point) * 0.5f;
-
-                merged = true;
-                break;
-            }
-
-            if (!merged)
-            {
-                mergedPoints.Add(point);
-            }
-        }
+        List<Vector3> mergedPoints = GetMergedCorners();
 
         for (int i = 0; i < mergedPoints.Count; i++)
         {
 #if UNITY_EDITOR
             GameObject node =
-                (GameObject)UnityEditor.PrefabUtility
-                .InstantiatePrefab(_prefab);
+                (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(_prefab);
 #else
             GameObject node = Instantiate(_prefab);
 #endif
@@ -83,7 +51,7 @@ public class NodeViewer : MonoBehaviour
     }
 
 
-    public void ClearCorners()
+    public void ClearNodes()
     {
         int count = _spawnedNodes.Count;
 
@@ -107,5 +75,11 @@ public class NodeViewer : MonoBehaviour
     {
         return CornerDetection.GetVisibleCorners(
             transform.position, _viewRange, _cornerOffset, _obstacleMask);
+    }
+    public List<Vector3> GetMergedCorners()
+    {
+        return CornerDetection.GetMergedCorners(
+            GetVisibleCorners(),
+            _nodeMergeDistance);
     }
 }
