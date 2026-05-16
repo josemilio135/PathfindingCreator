@@ -9,17 +9,15 @@ public class NodeGraphGenerator : MonoBehaviour
     [SerializeField, Min(0.0001f)] float _cornerOffset = .25f;
 
     [Header("Nodes")]
-    [SerializeField] Transform _nodesContainer;
     [SerializeField] GameObject _prefab;
     [SerializeField, Min(0.01f)] float _nodeMergeDistance = 1f;
-
-    [Header("Debug")]
-    readonly List<GameObject> _spawnedNodes = new();
-
-
+    [SerializeField] bool _automaticUndo = false;
     public float ViewRange => _viewRange;
     public float NodeMergeDistance => _nodeMergeDistance;
-    public bool IsClean => _spawnedNodes.Count == 0;
+    public bool IsClean => _lastGeneratedContainer == null;
+
+    //   readonly List<GameObject> _spawnedNodes = new();
+    private Transform _lastGeneratedContainer;
 
     public void BakeOnlyThisNodes()
     {
@@ -29,7 +27,7 @@ public class NodeGraphGenerator : MonoBehaviour
             return;
         }
 
-        ClearAllNodes();
+        if (_automaticUndo) UndoLastBake();
 
         List<Vector3> points =
             GetMergedCorners();
@@ -47,14 +45,12 @@ public class NodeGraphGenerator : MonoBehaviour
             return;
         }
 
-        ClearAllNodes();
+        if (_automaticUndo) UndoLastBake();
 
         List<Vector3> points =
             NodeGraphBake.GenerateGraph(
                 transform.position,
-                _viewRange,
-                _cornerOffset,
-                _nodeMergeDistance,
+                _viewRange, _cornerOffset, _nodeMergeDistance,
                 _obstacleMask);
 
         InstantiateNodes(points);
@@ -63,46 +59,39 @@ public class NodeGraphGenerator : MonoBehaviour
     }
 
 
-
-
-
-
-    public void ClearAllNodes()
+    public void UndoLastBake()
     {
-        int count = _spawnedNodes.Count;
-
-        for (int i = _spawnedNodes.Count - 1; i >= 0; i--)
-        {
-            if (_spawnedNodes[i] == null) continue;
+        if (_lastGeneratedContainer == null)
+            return;
 
 #if UNITY_EDITOR
-            DestroyImmediate(_spawnedNodes[i]);
+        DestroyImmediate(
+            _lastGeneratedContainer.gameObject);
 #else
-            Destroy(_spawnedNodes[i]);
+    Destroy(
+        _lastGeneratedContainer.gameObject);
 #endif
-        }
 
-        _spawnedNodes.Clear();
+        Debug.Log("Último bake borrado.");
 
-        Debug.Log($"{count} nodos borrados.");
+        _lastGeneratedContainer = null;
     }
+
     void InstantiateNodes(List<Vector3> points)
     {
+        Transform container = CreateNodeContainer();
         for (int i = 0; i < points.Count; i++)
         {
 #if UNITY_EDITOR
-            Transform parentNodes = _nodesContainer ? _nodesContainer : transform;
-            GameObject node =
-                (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(_prefab, parentNodes);
+            GameObject node = (GameObject)UnityEditor
+                .PrefabUtility.InstantiatePrefab(_prefab, container);
 #else
-        GameObject node = Instantiate(_prefab);
+        GameObject node = Instantiate(_prefab, container);
 #endif
 
             node.transform.position = points[i];
 
-            node.transform.SetParent(transform);
-
-            _spawnedNodes.Add(node);
+            // _spawnedNodes.Add(node);
         }
     }
 
@@ -116,6 +105,11 @@ public class NodeGraphGenerator : MonoBehaviour
         return CornerDetection.GetMergedCorners(
             GetVisibleCorners(), _nodeMergeDistance);
     }
-
+    Transform CreateNodeContainer()
+    {
+        GameObject container = new($"{gameObject.name}_PathNodes");
+        _lastGeneratedContainer = container.transform;
+        return _lastGeneratedContainer;
+    }
 
 }

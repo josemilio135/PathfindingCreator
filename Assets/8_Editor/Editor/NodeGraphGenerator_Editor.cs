@@ -51,9 +51,9 @@ public class NodeGraphGenerator_Editor : Editor
             EditorUtility.SetDirty(_viewer);
         }
         
-        if (GUILayout.Button("Bake All Nodes"))
+        if (GUILayout.Button("Bake All Area Nodes"))
         {
-            Undo.RecordObject(_viewer, "Bake All Nodes");
+            Undo.RecordObject(_viewer, "Bake All Area Nodes");
 
             _viewer.BakeAllNodes();
 
@@ -62,11 +62,11 @@ public class NodeGraphGenerator_Editor : Editor
 
         EditorGUI.BeginDisabledGroup(_viewer.IsClean);
 
-        if (GUILayout.Button("Clear All Nodes"))
+        if (GUILayout.Button("Undo Last Bake"))
         {
-            Undo.RecordObject(_viewer, "Clear All Nodes");
+            Undo.RecordObject(_viewer, "Undo Last Bake");
 
-            _viewer.ClearAllNodes();
+            _viewer.UndoLastBake();
 
             EditorUtility.SetDirty(_viewer);
         }
