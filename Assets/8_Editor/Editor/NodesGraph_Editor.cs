@@ -4,9 +4,12 @@ using UnityEngine;
 [CustomEditor(typeof(NodeViewer))]
 public class NodesGraph_Editor : Editor
 {
-
     NodeViewer _viewer;
-    bool _drawDebug = true;
+
+    bool _showGizmos = true;
+
+    bool _drawViewRange = true;
+    bool _drawDetectionCorners = true;
 
     void OnEnable()
     {
@@ -23,12 +26,14 @@ public class NodesGraph_Editor : Editor
 
         EditorGUILayout.Space();
 
-        DrawDebugToggle();
+        DrawGizmosSection();
     }
 
     void DrawBakeButtons()
     {
-        EditorGUILayout.LabelField("Bake Tools", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(
+            "Bake Tools",
+            EditorStyles.boldLabel);
 
         if (GUILayout.Button("Bake Corners"))
         {
@@ -53,67 +58,69 @@ public class NodesGraph_Editor : Editor
         EditorGUI.EndDisabledGroup();
     }
 
-    void DrawDebugToggle()
+    void DrawGizmosSection()
     {
-        _drawDebug = EditorGUILayout.Toggle("Draw Debug", _drawDebug);
-    }
+        _showGizmos = EditorGUILayout.Foldout(
+            _showGizmos,
+            "Gizmos",
+            true);
 
+        if (!_showGizmos) return;
+
+        EditorGUI.indentLevel++;
+
+        _drawDetectionCorners =
+            EditorGUILayout.Toggle(
+                "Detection Corners",
+                _drawDetectionCorners);
+
+        _drawViewRange =
+            EditorGUILayout.Toggle(
+                "View Range",
+                _drawViewRange);
+
+        EditorGUI.indentLevel--;
+    }
 
     void OnSceneGUI()
     {
-        if (!_drawDebug) return;
+        DrawViewRange();
 
         DrawVisibleCorners();
     }
 
-    void DrawVisibleCorners()
+    void DrawViewRange()
     {
-        int collidersCount = _viewer.ScanWalls();
+        if (!_drawViewRange) return;
 
-        Collider[] results = _viewer.Results;
+        Handles.color = Color.white;
 
-        for (int i = 0; i < collidersCount; i++)
-        {
-            BoxCollider box = results[i] as BoxCollider;
-
-            if (box == null) continue;
-
-            DrawBoxCorners(box);
-        }
+        Handles.DrawWireDisc(
+            _viewer.transform.position,
+            Vector3.up,
+            _viewer.ViewRange);
     }
 
-    void DrawBoxCorners(BoxCollider box)
+    void DrawVisibleCorners()
     {
-        Vector3[] corners = _viewer.GetCorners(box);
+        if (!_drawDetectionCorners) return;
 
-        for (int i = 0; i < corners.Length; i++)
+        foreach (Vector3 corner in _viewer.GetVisibleCorners())
         {
-            Vector3 realCorner = corners[i];
-
-            Vector3 cornerDirection =
-                realCorner - box.bounds.center;
-
-            cornerDirection.Normalize();
-
-            Vector3 cornerOffset =
-                realCorner +
-                cornerDirection * _viewer.CornerOffset;
-
-            bool canSeeThisCorner =
-                Perception.HasLineOfSight(
-                    _viewer.transform.position, cornerOffset, _viewer.WallMask);
-
-            if (!canSeeThisCorner) continue;
-
             Handles.color = Color.yellow;
 
             Handles.DrawLine(
-                _viewer.transform.position, cornerOffset);
+                _viewer.transform.position,
+                corner);
 
             Handles.color = Color.cyan;
 
             Handles.SphereHandleCap(
-                0, cornerOffset, Quaternion.identity, 0.25f, EventType.Repaint);
+                0,
+                corner,
+                Quaternion.identity,
+                0.25f,
+                EventType.Repaint);
         }
     }
 }
