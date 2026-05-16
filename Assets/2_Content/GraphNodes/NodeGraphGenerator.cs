@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,6 +9,7 @@ public class NodeGraphGenerator : MonoBehaviour
     [SerializeField, Min(0.0001f)] float _cornerOffset = .25f;
 
     [Header("Nodes")]
+    [SerializeField] Transform _nodesContainer;
     [SerializeField] GameObject _prefab;
     [SerializeField, Min(0.01f)] float _nodeMergeDistance = 1f;
 
@@ -25,35 +25,41 @@ public class NodeGraphGenerator : MonoBehaviour
     {
         if (_prefab == null)
         {
-            Debug.LogWarning("No hay prefab asignado.");
+            Debug.LogWarning("No prefab assigned.");
             return;
         }
 
         ClearAllNodes();
 
-        List<Vector3> mergedPoints = GetMergedCorners();
+        List<Vector3> points =
+            GetMergedCorners();
 
-        for (int i = 0; i < mergedPoints.Count; i++)
-        {
-#if UNITY_EDITOR
-            GameObject node =
-                (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(_prefab);
-#else
-            GameObject node = Instantiate(_prefab);
-#endif
+        InstantiateNodes(points);
 
-            node.transform.position = mergedPoints[i];
-            node.transform.SetParent(transform);
-
-            _spawnedNodes.Add(node);
-        }
-
-        Debug.Log($"Bake terminado. {_spawnedNodes.Count} nodos creados.");
+        Debug.Log($"Bake local. {points.Count} nodos creados.");
     }
 
     public void BakeAllNodes()
     {
-        throw new NotImplementedException();
+        if (_prefab == null)
+        {
+            Debug.LogWarning("No prefab assigned.");
+            return;
+        }
+
+        ClearAllNodes();
+
+        List<Vector3> points =
+            NodeGraphBake.GenerateGraph(
+                transform.position,
+                _viewRange,
+                _cornerOffset,
+                _nodeMergeDistance,
+                _obstacleMask);
+
+        InstantiateNodes(points);
+
+        Debug.Log($"Bake completo. {points.Count} nodos creados.");
     }
 
 
@@ -80,6 +86,25 @@ public class NodeGraphGenerator : MonoBehaviour
 
         Debug.Log($"{count} nodos borrados.");
     }
+    void InstantiateNodes(List<Vector3> points)
+    {
+        for (int i = 0; i < points.Count; i++)
+        {
+#if UNITY_EDITOR
+            Transform parentNodes = _nodesContainer ? _nodesContainer : transform;
+            GameObject node =
+                (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(_prefab, parentNodes);
+#else
+        GameObject node = Instantiate(_prefab);
+#endif
+
+            node.transform.position = points[i];
+
+            node.transform.SetParent(transform);
+
+            _spawnedNodes.Add(node);
+        }
+    }
 
     public IEnumerable<Vector3> GetVisibleCorners()
     {
@@ -92,5 +117,5 @@ public class NodeGraphGenerator : MonoBehaviour
             GetVisibleCorners(), _nodeMergeDistance);
     }
 
-   
+
 }
