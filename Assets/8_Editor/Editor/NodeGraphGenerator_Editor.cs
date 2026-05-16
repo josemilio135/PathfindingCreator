@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-[CustomEditor(typeof(NodeViewer))]
-public class NodesGraph_Editor : Editor
+[CustomEditor(typeof(NodeGraphGenerator))]
+public class NodeGraphGenerator_Editor : Editor
 {
-    NodeViewer _viewer;
+    NodeGraphGenerator _viewer;
 
     bool _showGizmos = true;
 
@@ -15,7 +15,7 @@ public class NodesGraph_Editor : Editor
 
     void OnEnable()
     {
-        _viewer = (NodeViewer)target;
+        _viewer = (NodeGraphGenerator)target;
     }
     void OnSceneGUI()
     {
@@ -42,22 +42,31 @@ public class NodesGraph_Editor : Editor
         EditorGUILayout.LabelField(
             "Bake Tools", EditorStyles.boldLabel);
 
-        if (GUILayout.Button("Bake Nodes"))
+        if (GUILayout.Button("Bake Only This Nodes"))
         {
-            Undo.RecordObject(_viewer, "Bake Nodes");
+            Undo.RecordObject(_viewer, "Bake Only This Nodes");
 
-            _viewer.BakeNodes();
+            _viewer.BakeOnlyThisNodes();
+
+            EditorUtility.SetDirty(_viewer);
+        }
+        
+        if (GUILayout.Button("Bake All Nodes"))
+        {
+            Undo.RecordObject(_viewer, "Bake All Nodes");
+
+            _viewer.BakeAllNodes();
 
             EditorUtility.SetDirty(_viewer);
         }
 
         EditorGUI.BeginDisabledGroup(_viewer.IsClean);
 
-        if (GUILayout.Button("Clear Nodes"))
+        if (GUILayout.Button("Clear All Nodes"))
         {
-            Undo.RecordObject(_viewer, "Clear Nodes");
+            Undo.RecordObject(_viewer, "Clear All Nodes");
 
-            _viewer.ClearNodes();
+            _viewer.ClearAllNodes();
 
             EditorUtility.SetDirty(_viewer);
         }

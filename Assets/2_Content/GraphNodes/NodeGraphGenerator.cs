@@ -1,7 +1,8 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class NodeViewer : MonoBehaviour
+public class NodeGraphGenerator : MonoBehaviour
 {
     [Header("Vision detection")]
     [SerializeField] LayerMask _obstacleMask;
@@ -20,7 +21,7 @@ public class NodeViewer : MonoBehaviour
     public float NodeMergeDistance => _nodeMergeDistance;
     public bool IsClean => _spawnedNodes.Count == 0;
 
-    public void BakeNodes()
+    public void BakeOnlyThisNodes()
     {
         if (_prefab == null)
         {
@@ -28,7 +29,7 @@ public class NodeViewer : MonoBehaviour
             return;
         }
 
-        ClearNodes();
+        ClearAllNodes();
 
         List<Vector3> mergedPoints = GetMergedCorners();
 
@@ -50,8 +51,17 @@ public class NodeViewer : MonoBehaviour
         Debug.Log($"Bake terminado. {_spawnedNodes.Count} nodos creados.");
     }
 
+    public void BakeAllNodes()
+    {
+        throw new NotImplementedException();
+    }
 
-    public void ClearNodes()
+
+
+
+
+
+    public void ClearAllNodes()
     {
         int count = _spawnedNodes.Count;
 
@@ -79,7 +89,8 @@ public class NodeViewer : MonoBehaviour
     public List<Vector3> GetMergedCorners()
     {
         return CornerDetection.GetMergedCorners(
-            GetVisibleCorners(),
-            _nodeMergeDistance);
+            GetVisibleCorners(), _nodeMergeDistance);
     }
+
+   
 }

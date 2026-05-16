@@ -67,10 +67,8 @@ public static class CornerDetection
         }
     }
 
-    
-    public static List<Vector3> GetMergedCorners(
-    IEnumerable<Vector3> points,
-    float mergeDistance)
+
+    public static List<Vector3> GetMergedCorners(IEnumerable<Vector3> points, float mergeDistance)
     {
         List<Vector3> mergedPoints = new();
 
@@ -81,24 +79,17 @@ public static class CornerDetection
             for (int i = 0; i < mergedPoints.Count; i++)
             {
                 bool isInMergeRange =
-                    Perception.IsInRange(
-                        mergedPoints[i],
-                        point,
-                        mergeDistance);
+                    Perception.IsInRange(mergedPoints[i], point, mergeDistance);
 
                 if (!isInMergeRange) continue;
 
-                mergedPoints[i] =
-                    (mergedPoints[i] + point) * 0.5f;
+                mergedPoints[i] = (mergedPoints[i] + point) * 0.5f;
 
                 merged = true;
                 break;
             }
 
-            if (!merged)
-            {
-                mergedPoints.Add(point);
-            }
+            if (!merged) mergedPoints.Add(point);
         }
 
         return mergedPoints;
