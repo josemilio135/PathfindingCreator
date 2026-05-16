@@ -1,4 +1,3 @@
-using log4net.Util;
 using UnityEditor;
 using UnityEngine;
 
@@ -91,28 +90,30 @@ public class NodesGraph_Editor : Editor
         {
             Vector3 realCorner = corners[i];
 
-            Vector3 cornerDirection = realCorner - box.bounds.center;
+            Vector3 cornerDirection =
+                realCorner - box.bounds.center;
 
             cornerDirection.Normalize();
 
             Vector3 cornerOffset =
-                realCorner + cornerDirection * _viewer.CornerOffset;
-
+                realCorner +
+                cornerDirection * _viewer.CornerOffset;
 
             bool canSeeThisCorner =
-               Perception.IsPointVisible(
-                   _viewer.transform.position, cornerOffset, _viewer.WallMask, box);
+                Perception.HasLineOfSight(
+                    _viewer.transform.position, cornerOffset, _viewer.WallMask);
 
             if (!canSeeThisCorner) continue;
 
             Handles.color = Color.yellow;
 
-            Handles.DrawLine(  _viewer.transform.position,  cornerOffset);
+            Handles.DrawLine(
+                _viewer.transform.position, cornerOffset);
 
             Handles.color = Color.cyan;
 
             Handles.SphereHandleCap(
-                0, cornerOffset,  Quaternion.identity,  0.25f, EventType.Repaint);
+                0, cornerOffset, Quaternion.identity, 0.25f, EventType.Repaint);
         }
     }
 }

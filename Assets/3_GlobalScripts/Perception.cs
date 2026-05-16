@@ -46,38 +46,6 @@ public static class Perception
         return !blocked;
     }
 
-    /// <summary>
-    /// Returns true if a point on a collider is directly visible
-    /// without being occluded by other geometry or by the collider itself.
-    /// </summary>
-    public static bool IsPointVisible(
-        Vector3 from, Vector3 point,
-        LayerMask obstacleMask, Collider expectedCollider)
-    {
-        Vector3 direction = point - from;
-
-        float distance = direction.magnitude;
-
-        if (distance <= 0f) return false;
-
-        direction /= distance;
-
-        bool hitSomething = Physics.Raycast(
-            from, direction, out RaycastHit hit,
-            distance + 0.01f, obstacleMask);
-
-        if (!hitSomething) return false;
-
-        if (hit.collider != expectedCollider) return false;
-
-        float pointDistance =
-            Vector3.Distance(from, point);
-
-        float hitDistance =
-            Vector3.Distance(from, hit.point);
-
-        return Mathf.Abs(pointDistance - hitDistance) < 0.05f;
-    }
     #endregion
 
     #region Range

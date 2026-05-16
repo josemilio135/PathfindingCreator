@@ -7,13 +7,13 @@ public class NodeViewer : MonoBehaviour
     [SerializeField, Min(0f)] float _viewRange = 15f;
 
     [Header("Corners")]
-    [SerializeField, Min(0f)] float _cornerOffset = .25f;
+    [SerializeField, Min(0.0001f)] float _cornerOffset = .25f;
 
     [Header("Debug")]
 
     readonly Collider[] _results = new Collider[64];
 
-    //
+
     public LayerMask WallMask => _wallMask;
     public float ViewRange => _viewRange;
     public float CornerOffset => _cornerOffset;
@@ -36,8 +36,8 @@ public class NodeViewer : MonoBehaviour
     public int ScanWalls()
     {
         // Detect colliders and store them in the results array.
-         return Physics.OverlapSphereNonAlloc(
-            transform.position, _viewRange, _results, _wallMask);
+        return Physics.OverlapSphereNonAlloc(
+           transform.position, _viewRange, _results, _wallMask);
     }
     public Vector3[] GetCorners(BoxCollider box)
     {
