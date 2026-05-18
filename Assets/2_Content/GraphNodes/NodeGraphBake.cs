@@ -5,51 +5,46 @@ public static class NodeGraphBake
 {
     public static List<Vector3> GenerateGraph(
         Vector3 seedPosition,
-        float viewRange, float cornerOffset, float mergeDistance,
+        float viewRange,
+        float agentRadius,
+        float wallOffset,
+        float agentHeight,
+        float mergeDistance,
         LayerMask obstacleMask)
     {
-        Queue<Vector3> pendingPoints = new();
-        List<Vector3> graphPoints = new();
+        var pending = new Queue<Vector3>();
+        var graph = new List<Vector3>();
 
-        pendingPoints.Enqueue(seedPosition);
+        pending.Enqueue(seedPosition);
 
-        while (pendingPoints.Count > 0)
+        while (pending.Count > 0)
         {
-            Vector3 currentPoint = pendingPoints.Dequeue();
+            Vector3 current = pending.Dequeue();
 
-            List<Vector3> visibleCorners =
-                CornerDetection.GetMergedCorners(
-                    CornerDetection.GetVisibleCorners(
-                        currentPoint, viewRange, cornerOffset, obstacleMask), mergeDistance);
+            var visible = CornerDetection.GetMergedCorners(
+                CornerDetection.GetVisibleCorners(
+                    current, viewRange,
+                    agentRadius, wallOffset, agentHeight,
+                    obstacleMask),
+                mergeDistance);
 
-            for (int i = 0; i < visibleCorners.Count; i++)
+            for (int i = 0; i < visible.Count; i++)
             {
-                Vector3 corner = visibleCorners[i];
-
-                bool alreadyExists =
-                    ContainsPoint(graphPoints, corner, mergeDistance);
-
-                if (alreadyExists) continue;
-
-                graphPoints.Add(corner);
-
-                pendingPoints.Enqueue(corner);
+                Vector3 corner = visible[i];
+                if (ContainsPoint(graph, corner, mergeDistance)) continue;
+                graph.Add(corner);
+                pending.Enqueue(corner);
             }
         }
 
-        return graphPoints;
+        return graph;
     }
 
-    static bool ContainsPoint(List<Vector3> points, Vector3 targetPoint, float range)
+    static bool ContainsPoint(List<Vector3> points, Vector3 target, float range)
     {
         for (int i = 0; i < points.Count; i++)
-        {
-            bool isInRange =
-                Perception.IsInRange(points[i], targetPoint, range);
-
-            if (isInRange) return true;
-        }
-
+            if (Perception.IsInRange(points[i], target, range))
+                return true;
         return false;
     }
 }
