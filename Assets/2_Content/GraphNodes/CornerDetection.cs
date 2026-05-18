@@ -157,13 +157,196 @@ public static class CornerDetection
     float offset,
     float y)
     {
-        Transform t = collider.transform;
+        MeshCollider meshCollider =
+            collider as MeshCollider;
 
-        // IMPORTANTE:
-        // antes usabas t.position y eso rompe muchísimo en ProBuilder,
-        // porque el pivot puede estar lejos o mal centrado.
-        // bounds.center es MUCHO más estable.
+        // si NO es mesh collider
+        // usamos el método radial viejo
+        // porque para orgánicos funciona bien
+        if (meshCollider == null ||
+            meshCollider.sharedMesh == null)
+        {
+            foreach (Vector3 p in GetOrganicMeshCorners(
+                collider,
+                offset,
+                y))
+            {
+                yield return p;
+            }
 
+            yield break;
+        }
+
+        Mesh mesh =
+            meshCollider.sharedMesh;
+
+        Vector3[] vertices =
+            mesh.vertices;
+
+        int[] triangles =
+            mesh.triangles;
+
+        Transform t =
+            collider.transform;
+
+        Dictionary<Vector3Int, List<Vector3>> vertexConnections =
+            new();
+
+        // =========
+        // construir grafo de aristas
+        // =========
+
+        for (int i = 0; i < triangles.Length; i += 3)
+        {
+            Vector3 a =
+                vertices[triangles[i]];
+
+            Vector3 b =
+                vertices[triangles[i + 1]];
+
+            Vector3 c =
+                vertices[triangles[i + 2]];
+
+            RegisterEdge(a, b);
+            RegisterEdge(b, c);
+            RegisterEdge(c, a);
+        }
+
+        void RegisterEdge(
+            Vector3 from,
+            Vector3 to)
+        {
+            Vector3Int key =
+                Quantize(from);
+
+            if (!vertexConnections.TryGetValue(
+                key,
+                out List<Vector3> list))
+            {
+                list = new();
+                vertexConnections.Add(
+                    key,
+                    list);
+            }
+
+            bool exists = false;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                if ((list[i] - to).sqrMagnitude < 0.0001f)
+                {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if (!exists)
+                list.Add(to);
+        }
+
+        // =========
+        // detectar vertices esquina
+        // =========
+
+        List<Vector3> result = new();
+
+        foreach (var pair in vertexConnections)
+        {
+            List<Vector3> connected =
+                pair.Value;
+
+            // necesitamos mínimo 2 conexiones
+            if (connected.Count < 2)
+                continue;
+
+            Vector3Int key = pair.Key;
+
+            Vector3 localVertex = new(
+                key.x / 1000f,
+                key.y / 1000f,
+                key.z / 1000f);
+
+            Vector3 worldVertex =
+                t.TransformPoint(localVertex);
+
+            worldVertex.y = y;
+
+            bool isCorner = false;
+
+            for (int i = 0; i < connected.Count; i++)
+            {
+                for (int j = i + 1; j < connected.Count; j++)
+                {
+                    Vector3 dirA =
+                        Horizontal(
+                            t.TransformDirection(
+                                connected[i] - localVertex));
+
+                    Vector3 dirB =
+                        Horizontal(
+                            t.TransformDirection(
+                                connected[j] - localVertex));
+
+                    if (dirA == Vector3.zero ||
+                        dirB == Vector3.zero)
+                        continue;
+
+                    float angle =
+                        Vector3.Angle(
+                            dirA,
+                            dirB);
+
+                    // si NO es línea recta
+                    // entonces es esquina
+                    if (Mathf.Abs(angle - 180f) > 12f)
+                    {
+                        isCorner = true;
+                        break;
+                    }
+                }
+
+                if (isCorner)
+                    break;
+            }
+
+            if (!isCorner)
+                continue;
+
+            Vector3 outward =
+                Horizontal(
+                    worldVertex -
+                    collider.bounds.center);
+
+            if (outward == Vector3.zero)
+                continue;
+
+            Vector3 node =
+                worldVertex +
+                outward * offset;
+
+            node.y = y;
+
+            result.Add(node);
+        }
+
+        // =========
+        // merge final
+        // =========
+
+        result =
+            Simplify(
+                result,
+                offset * 1.5f);
+
+        for (int i = 0; i < result.Count; i++)
+            yield return result[i];
+    }
+
+    static IEnumerable<Vector3> GetOrganicMeshCorners(
+        Collider collider,
+        float offset,
+        float y)
+    {
         Vector3 center =
             Flatten(
                 collider.bounds.center,
@@ -184,12 +367,9 @@ public static class CornerDetection
             dir =
                 Horizontal(dir);
 
-            // arrancamos lejos y disparamos hacia el objeto
             Vector3 origin =
                 center -
                 dir * MAX_RADIUS;
-
-            origin.y = y;
 
             int hitCount =
                 Physics.RaycastNonAlloc(
@@ -198,15 +378,7 @@ public static class CornerDetection
                     _rayHits,
                     MAX_RADIUS * 2f);
 
-            if (hitCount == 0)
-                continue;
-
-            // queremos el PRIMER HIT del collider
-            // NO el más lejano
-            // porque ProBuilder genera caras internas/raras
-            // y el farthest rompe todo
-
-            float closestDistance = float.MaxValue;
+            float closest = float.MaxValue;
             RaycastHit selected = default;
 
             for (int j = 0; j < hitCount; j++)
@@ -217,32 +389,25 @@ public static class CornerDetection
                 if (hit.collider != collider)
                     continue;
 
-                if (hit.distance >= closestDistance)
+                if (hit.distance >= closest)
                     continue;
 
-                closestDistance =
+                closest =
                     hit.distance;
 
                 selected = hit;
             }
 
-            if (closestDistance == float.MaxValue)
+            if (closest == float.MaxValue)
                 continue;
 
             Vector3 normal =
                 Horizontal(
                     selected.normal);
 
-            // algunas caras de probuilder devuelven normales basura
             if (normal == Vector3.zero)
-            {
-                normal =
-                    Horizontal(
-                        selected.point - center);
-            }
+                continue;
 
-            // ESTE OFFSET ES EL IMPORTANTE
-            // aleja el nodo de la pared
             Vector3 node =
                 selected.point +
                 normal * offset;
@@ -252,21 +417,22 @@ public static class CornerDetection
             points.Add(node);
         }
 
-        // merge suave
-        // no agresivo porque destruye esquinas
-        List<Vector3> simplified =
+        points =
             Simplify(
                 points,
-                offset);
+                offset * 2f);
 
-        // quitar puntos alineados
-        simplified =
-            RemoveLinearPoints(
-                simplified,
-                8f);
+        for (int i = 0; i < points.Count; i++)
+            yield return points[i];
+    }
 
-        for (int i = 0; i < simplified.Count; i++)
-            yield return simplified[i];
+    static Vector3Int Quantize(
+        Vector3 v)
+    {
+        return new Vector3Int(
+            Mathf.RoundToInt(v.x * 1000f),
+            Mathf.RoundToInt(v.y * 1000f),
+            Mathf.RoundToInt(v.z * 1000f));
     }
 
     static List<Vector3> RemoveLinearPoints(
