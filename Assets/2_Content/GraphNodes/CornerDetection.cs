@@ -43,6 +43,31 @@ public static class CornerDetection
         return Vector3.Dot(normal, Vector3.up) >= 0.55f;
     }
 
+    static bool TryGetGround(
+        Vector3 origin,
+        float maxDistance,
+        LayerMask walkableMask,
+        out Vector3 point)
+    {
+        point = default;
+
+        if (!Physics.Raycast(
+            origin,
+            Vector3.down,
+            out RaycastHit hit,
+            maxDistance,
+            walkableMask,
+            QueryTriggerInteraction.Ignore))
+            return false;
+
+        if (!IsWalkableNormal(hit.normal))
+            return false;
+
+        point = hit.point;
+
+        return true;
+    }
+
     static bool HasClearance(
         Vector3 point,
         float agentHeight,
@@ -153,7 +178,7 @@ public static class CornerDetection
 
     static bool NeedsToBeAvoided(
         Collider obstacle,
-        float groundY,
+        float agentBottom,
         float agentHeight)
     {
         Bounds b = obstacle.bounds;
@@ -161,8 +186,8 @@ public static class CornerDetection
         float obstacleBottom = b.min.y;
         float obstacleTop = b.max.y;
 
-        float agentBottom = groundY;
-        float agentTop = groundY + agentHeight;
+        float agentTop =
+            agentBottom + agentHeight;
 
         return obstacleTop > agentBottom &&
                obstacleBottom < agentTop;
@@ -233,14 +258,11 @@ public static class CornerDetection
     }
 
     static bool IntersectsAgentHeight(
-        float y,
-        float obstacleHeight,
+        float obstacleBottom,
+        float obstacleTop,
         float agentBottom,
         float agentTop)
     {
-        float obstacleBottom = y;
-        float obstacleTop = y + obstacleHeight;
-
         return obstacleTop > agentBottom &&
                obstacleBottom < agentTop;
     }
@@ -285,7 +307,7 @@ public static class CornerDetection
 
                         if (!IntersectsAgentHeight(
                             world.y,
-                            0.01f,
+                            world.y + 0.01f,
                             agentBottom,
                             agentTop))
                             continue;
@@ -317,8 +339,11 @@ public static class CornerDetection
                     float bottom =
                         center.y - radius;
 
-                    if (top < agentBottom ||
-                        bottom > agentTop)
+                    if (!IntersectsAgentHeight(
+                        bottom,
+                        top,
+                        agentBottom,
+                        agentTop))
                         return new();
 
                     for (int i = 0; i < curvedPrecision; i++)
@@ -376,21 +401,24 @@ public static class CornerDetection
                     float half =
                         (height * 0.5f) - radius;
 
+                    float capsuleBottom =
+                        center.y - height * 0.5f;
+
+                    float capsuleTop =
+                        center.y + height * 0.5f;
+
+                    if (!IntersectsAgentHeight(
+                        capsuleBottom,
+                        capsuleTop,
+                        agentBottom,
+                        agentTop))
+                        return new();
+
                     Vector3 p1 =
                         center + axis * half;
 
                     Vector3 p2 =
                         center - axis * half;
-
-                    float capsuleTop =
-                        center.y + height * 0.5f;
-
-                    float capsuleBottom =
-                        center.y - height * 0.5f;
-
-                    if (capsuleTop < agentBottom ||
-                        capsuleBottom > agentTop)
-                        return new();
 
                     for (int i = 0; i < curvedPrecision; i++)
                     {
@@ -441,7 +469,7 @@ public static class CornerDetection
 
                         if (!IntersectsAgentHeight(
                             world.y,
-                            0.01f,
+                            world.y + 0.01f,
                             agentBottom,
                             agentTop))
                             continue;
@@ -458,8 +486,11 @@ public static class CornerDetection
                 {
                     Bounds b = collider.bounds;
 
-                    if (b.max.y < agentBottom ||
-                        b.min.y > agentTop)
+                    if (!IntersectsAgentHeight(
+                        b.min.y,
+                        b.max.y,
+                        agentBottom,
+                        agentTop))
                         return new();
 
                     AddUnique(unique,
@@ -581,8 +612,21 @@ public static class CornerDetection
         LayerMask obstacleMask,
         LayerMask walkableMask)
     {
+        if (!TryGetGround(
+            origin + Vector3.up * 5f,
+            100f,
+            walkableMask,
+            out Vector3 groundPoint))
+            yield break;
+
+        float agentBottom =
+            groundPoint.y;
+
+        Vector3 detectionOrigin =
+            groundPoint + Vector3.up * (agentHeight * 0.5f);
+
         int count = Physics.OverlapSphereNonAlloc(
-            origin,
+            detectionOrigin,
             viewRange,
             _overlapResults,
             obstacleMask,
@@ -595,22 +639,30 @@ public static class CornerDetection
 
             if (!NeedsToBeAvoided(
                 collider,
-                origin.y,
+                agentBottom,
                 agentHeight))
                 continue;
 
             foreach (Vector3 node in GenerateCornerNodes(
                 collider,
-                origin.y,
+                agentBottom,
                 agentRadius,
                 agentHeight,
                 curvedPrecision,
                 obstacleMask,
                 walkableMask))
             {
+                Vector3 eye =
+                    groundPoint +
+                    Vector3.up * (agentHeight * 0.5f);
+
+                Vector3 target =
+                    node +
+                    Vector3.up * (agentHeight * 0.5f);
+
                 if (Perception.HasLineOfSight(
-                    origin,
-                    node,
+                    eye,
+                    target,
                     obstacleMask))
                 {
                     yield return node;
