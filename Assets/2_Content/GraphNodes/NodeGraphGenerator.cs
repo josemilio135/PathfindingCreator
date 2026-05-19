@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿// NodeGraphGenerator.cs
+
+using System.Collections.Generic;
 using UnityEngine;
 
 public class NodeGraphGenerator : MonoBehaviour
@@ -6,23 +8,35 @@ public class NodeGraphGenerator : MonoBehaviour
     [Header("Detection")]
     [SerializeField] LayerMask _obstacleMask;
     [SerializeField] LayerMask _walkableMask;
-    [SerializeField, Min(0f)] float _viewRange = 15f;
+
+    [SerializeField, Min(0f)]
+    float _viewRange = 15f;
 
     [Header("Agent")]
-    [SerializeField, Min(0.01f)] float _agentHeight = 2f;
-    [SerializeField, Min(0.01f)] float _agentRadius = 0.4f;
+    [SerializeField, Min(0.1f)]
+    float _agentHeight = 2f;
+
+    [SerializeField, Min(0.05f)]
+    float _agentRadius = 0.4f;
+
+    [Header("Curved Precision")]
+    [SerializeField, Range(4, 32)]
+    int _curvedSurfacePrecision = 8;
 
     [Header("Nodes")]
     [SerializeField] GameObject _prefab;
-    [SerializeField, Min(0.01f)] float _nodeMergeDistance = 1f;
-    [SerializeField] bool _automaticUndo = false;
+
+    [SerializeField, Min(0.01f)]
+    float _nodeMergeDistance = 1f;
+
+    [SerializeField]
+    bool _automaticUndo = false;
 
     public float ViewRange => _viewRange;
     public float NodeMergeDistance => _nodeMergeDistance;
     public bool IsClean => _lastGeneratedContainer == null;
     public float AgentRadius => _agentRadius;
     public float AgentHeight => _agentHeight;
-
     Transform _lastGeneratedContainer;
 
     public void BakeOnlyThisNodes()
@@ -53,6 +67,7 @@ public class NodeGraphGenerator : MonoBehaviour
             _viewRange,
             _agentRadius,
             _agentHeight,
+            _curvedSurfacePrecision,
             _nodeMergeDistance,
             _obstacleMask,
             _walkableMask);
@@ -76,19 +91,24 @@ public class NodeGraphGenerator : MonoBehaviour
         _lastGeneratedContainer = null;
     }
 
-    public IEnumerable<Vector3> GetVisibleCorners() =>
-        CornerDetection.GetVisibleCorners(
+    public IEnumerable<Vector3> GetVisibleCorners()
+    {
+        return CornerDetection.GetVisibleCorners(
             transform.position,
             _viewRange,
             _agentRadius,
             _agentHeight,
+            _curvedSurfacePrecision,
             _obstacleMask,
             _walkableMask);
+    }
 
-    public List<Vector3> GetMergedCorners() =>
-        CornerDetection.GetMergedCorners(
+    public List<Vector3> GetMergedCorners()
+    {
+        return CornerDetection.GetMergedCorners(
             GetVisibleCorners(),
             _nodeMergeDistance);
+    }
 
     void InstantiateNodes(List<Vector3> points)
     {
@@ -98,11 +118,11 @@ public class NodeGraphGenerator : MonoBehaviour
         for (int i = 0; i < points.Count; i++)
         {
 #if UNITY_EDITOR
-            var node =
+            GameObject node =
                 (GameObject)UnityEditor.PrefabUtility
                 .InstantiatePrefab(_prefab, container);
 #else
-            var node =
+            GameObject node =
                 Instantiate(_prefab, container);
 #endif
 

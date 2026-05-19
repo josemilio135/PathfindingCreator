@@ -1,14 +1,16 @@
-﻿using System.Collections.Generic;
+﻿// CornerDetection.cs
+
+using System.Collections.Generic;
 using UnityEngine;
 
 public static class CornerDetection
 {
     static readonly Collider[] _overlapResults = new Collider[256];
-    static readonly Collider[] _clearanceHits = new Collider[32];
+    static readonly Collider[] _capsuleHits = new Collider[64];
     static readonly RaycastHit[] _groundHits = new RaycastHit[64];
 
     const float VERTEX_MERGE = 0.025f;
-    const float MIN_CORNER_ANGLE = 15f;
+    const float MIN_CORNER_ANGLE = 10f;
     const float EXTRA_OFFSET = 0.05f;
 
     static Vector3 Flatten(Vector3 v)
@@ -23,6 +25,11 @@ public static class CornerDetection
         return v / mag;
     }
 
+    static Vector3 PerpendicularRight(Vector3 dir)
+    {
+        return new Vector3(dir.z, 0f, -dir.x);
+    }
+
     static float Cross2D(Vector3 a, Vector3 b, Vector3 c)
     {
         Vector3 ab = b - a;
@@ -31,33 +38,12 @@ public static class CornerDetection
         return (ab.x * ac.z) - (ab.z * ac.x);
     }
 
-    static Vector3 PerpendicularRight(Vector3 dir)
-    {
-        return new Vector3(dir.z, 0f, -dir.x);
-    }
-
     static bool IsWalkableNormal(Vector3 normal)
     {
         return Vector3.Dot(normal, Vector3.up) >= 0.55f;
     }
 
-    static bool IsObstacleRelevant(
-        Collider collider,
-        float agentBottom,
-        float agentHeight)
-    {
-        Bounds b = collider.bounds;
-
-        float obstacleBottom = b.min.y;
-        float obstacleTop = b.max.y;
-
-        float agentTop = agentBottom + agentHeight;
-
-        return obstacleTop > agentBottom &&
-               obstacleBottom < agentTop;
-    }
-
-    static bool IsInsideObstacle(
+    static bool HasHeadClearance(
         Vector3 point,
         float agentHeight,
         float agentRadius,
@@ -74,31 +60,35 @@ public static class CornerDetection
             bottom,
             top,
             agentRadius,
-            _clearanceHits,
+            _capsuleHits,
             obstacleMask,
             QueryTriggerInteraction.Ignore);
 
         for (int i = 0; i < count; i++)
         {
-            Collider c = _clearanceHits[i];
+            Collider c = _capsuleHits[i];
 
             if (c == ignored)
                 continue;
 
-            if (!IsObstacleRelevant(
-                c,
-                point.y,
-                agentHeight))
+            Bounds b = c.bounds;
+
+            // Ignora obstáculos completamente arriba de la cabeza
+            if (b.min.y >= point.y + agentHeight)
                 continue;
 
-            return true;
+            // Ignora obstáculos completamente debajo del suelo
+            if (b.max.y <= point.y)
+                continue;
+
+            return false;
         }
 
-        return false;
+        return true;
     }
 
     static bool TrySnapToGround(
-        Vector3 point,
+        Vector3 candidate,
         float agentHeight,
         float agentRadius,
         Collider ignored,
@@ -106,16 +96,16 @@ public static class CornerDetection
         LayerMask walkableMask,
         out Vector3 snapped)
     {
-        snapped = point;
+        snapped = candidate;
 
         Vector3 origin =
-            point + Vector3.up * (agentHeight + 2f);
+            candidate + Vector3.up * (agentHeight + 4f);
 
         int count = Physics.RaycastNonAlloc(
             origin,
             Vector3.down,
             _groundHits,
-            agentHeight + 50f,
+            agentHeight + 100f,
             walkableMask,
             QueryTriggerInteraction.Ignore);
 
@@ -132,17 +122,19 @@ public static class CornerDetection
             if (!IsWalkableNormal(hit.normal))
                 continue;
 
-            if (IsInsideObstacle(
-                hit.point,
+            Vector3 point = hit.point;
+
+            if (!HasHeadClearance(
+                point,
                 agentHeight,
                 agentRadius,
                 ignored,
                 obstacleMask))
                 continue;
 
-            if (hit.point.y > bestY)
+            if (point.y > bestY)
             {
-                bestY = hit.point.y;
+                bestY = point.y;
                 found = true;
             }
         }
@@ -155,10 +147,22 @@ public static class CornerDetection
         return true;
     }
 
+    static void AddUnique(
+        Dictionary<Vector2Int, Vector3> map,
+        Vector3 point)
+    {
+        Vector2Int key = new(
+            Mathf.RoundToInt(point.x / VERTEX_MERGE),
+            Mathf.RoundToInt(point.z / VERTEX_MERGE));
+
+        if (!map.ContainsKey(key))
+            map.Add(key, point);
+    }
+
     static List<Vector3> BuildConvexHull(List<Vector3> points)
     {
         if (points.Count <= 3)
-            return new List<Vector3>(points);
+            return new(points);
 
         points.Sort((a, b) =>
         {
@@ -186,11 +190,11 @@ public static class CornerDetection
             hull.Add(points[i]);
         }
 
-        int lowerCount = hull.Count;
+        int lower = hull.Count;
 
         for (int i = points.Count - 2; i >= 0; i--)
         {
-            while (hull.Count > lowerCount &&
+            while (hull.Count > lower &&
                    Cross2D(
                        hull[hull.Count - 2],
                        hull[hull.Count - 1],
@@ -207,19 +211,9 @@ public static class CornerDetection
         return hull;
     }
 
-    static void AddUnique(
-        Dictionary<Vector2Int, Vector3> map,
-        Vector3 point)
-    {
-        Vector2Int key = new(
-            Mathf.RoundToInt(point.x / VERTEX_MERGE),
-            Mathf.RoundToInt(point.z / VERTEX_MERGE));
-
-        if (!map.ContainsKey(key))
-            map.Add(key, point);
-    }
-
-    static List<Vector3> ExtractContour(Collider collider)
+    static List<Vector3> ExtractContour(
+        Collider collider,
+        int curvedPrecision)
     {
         Dictionary<Vector2Int, Vector3> unique = new();
 
@@ -234,23 +228,22 @@ public static class CornerDetection
 
                     Vector3[] corners =
                     {
-                    new(+h.x, +h.y, +h.z),
-                    new(+h.x, +h.y, -h.z),
-                    new(-h.x, +h.y, -h.z),
-                    new(-h.x, +h.y, +h.z),
+                    new(+h.x,+h.y,+h.z),
+                    new(+h.x,+h.y,-h.z),
+                    new(-h.x,+h.y,-h.z),
+                    new(-h.x,+h.y,+h.z),
 
-                    new(+h.x, -h.y, +h.z),
-                    new(+h.x, -h.y, -h.z),
-                    new(-h.x, -h.y, -h.z),
-                    new(-h.x, -h.y, +h.z),
+                    new(+h.x,-h.y,+h.z),
+                    new(+h.x,-h.y,-h.z),
+                    new(-h.x,-h.y,-h.z),
+                    new(-h.x,-h.y,+h.z),
                 };
 
                     for (int i = 0; i < corners.Length; i++)
                     {
-                        Vector3 world =
-                            t.TransformPoint(c + corners[i]);
-
-                        AddUnique(unique, world);
+                        AddUnique(
+                            unique,
+                            t.TransformPoint(c + corners[i]));
                     }
 
                     break;
@@ -260,27 +253,26 @@ public static class CornerDetection
                 {
                     Transform t = sphere.transform;
 
+                    Vector3 center =
+                        t.TransformPoint(sphere.center);
+
                     float radius =
                         sphere.radius *
                         Mathf.Max(
                             t.lossyScale.x,
                             t.lossyScale.z);
 
-                    Vector3 center =
-                        t.TransformPoint(sphere.center);
-
-                    const int steps = 24;
-
-                    for (int i = 0; i < steps; i++)
+                    for (int i = 0; i < curvedPrecision; i++)
                     {
                         float a =
-                            i / (float)steps *
+                            i / (float)curvedPrecision *
                             Mathf.PI * 2f;
 
                         Vector3 dir =
                             new(Mathf.Cos(a), 0f, Mathf.Sin(a));
 
-                        AddUnique(unique,
+                        AddUnique(
+                            unique,
                             center + dir * radius);
                     }
 
@@ -290,6 +282,9 @@ public static class CornerDetection
             case CapsuleCollider capsule:
                 {
                     Transform t = capsule.transform;
+
+                    Vector3 center =
+                        t.TransformPoint(capsule.center);
 
                     Vector3 axis =
                         capsule.direction switch
@@ -303,9 +298,6 @@ public static class CornerDetection
 
                     Vector3 side =
                         PerpendicularRight(axis);
-
-                    Vector3 center =
-                        t.TransformPoint(capsule.center);
 
                     float radius =
                         capsule.radius *
@@ -328,12 +320,10 @@ public static class CornerDetection
                     Vector3 p2 =
                         center - axis * half;
 
-                    const int steps = 16;
-
-                    for (int i = 0; i < steps; i++)
+                    for (int i = 0; i < curvedPrecision; i++)
                     {
                         float a =
-                            i / (float)steps *
+                            i / (float)curvedPrecision *
                             Mathf.PI * 2f;
 
                         Vector3 dir =
@@ -342,11 +332,8 @@ public static class CornerDetection
 
                         dir = Flatten(dir);
 
-                        AddUnique(unique,
-                            p1 + dir * radius);
-
-                        AddUnique(unique,
-                            p2 + dir * radius);
+                        AddUnique(unique, p1 + dir * radius);
+                        AddUnique(unique, p2 + dir * radius);
                     }
 
                     break;
@@ -368,10 +355,9 @@ public static class CornerDetection
 
                     for (int i = 0; i < verts.Length; i++)
                     {
-                        Vector3 world =
-                            t.TransformPoint(verts[i]);
-
-                        AddUnique(unique, world);
+                        AddUnique(
+                            unique,
+                            t.TransformPoint(verts[i]));
                     }
 
                     break;
@@ -409,11 +395,14 @@ public static class CornerDetection
         Collider collider,
         float agentRadius,
         float agentHeight,
+        int curvedPrecision,
         LayerMask obstacleMask,
         LayerMask walkableMask)
     {
         List<Vector3> contour =
-            ExtractContour(collider);
+            ExtractContour(
+                collider,
+                curvedPrecision);
 
         if (contour.Count < 2)
             yield break;
@@ -448,14 +437,10 @@ public static class CornerDetection
             if (Mathf.Abs(angle - 180f) <= MIN_CORNER_ANGLE)
                 continue;
 
-            Vector3 outwardA =
-                PerpendicularRight(dirA);
-
-            Vector3 outwardB =
-                PerpendicularRight(dirB);
-
             Vector3 outward =
-                Flatten(outwardA + outwardB);
+                Flatten(
+                    PerpendicularRight(dirA) +
+                    PerpendicularRight(dirB));
 
             if (outward == Vector3.zero)
                 continue;
@@ -482,6 +467,7 @@ public static class CornerDetection
         float viewRange,
         float agentRadius,
         float agentHeight,
+        int curvedPrecision,
         LayerMask obstacleMask,
         LayerMask walkableMask)
     {
@@ -501,6 +487,7 @@ public static class CornerDetection
                 collider,
                 agentRadius,
                 agentHeight,
+                curvedPrecision,
                 obstacleMask,
                 walkableMask))
             {

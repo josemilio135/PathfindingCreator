@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿// NodeGraphBake.cs
+
+using System.Collections.Generic;
 using UnityEngine;
 
 public static class NodeGraphBake
@@ -8,6 +10,7 @@ public static class NodeGraphBake
         float viewRange,
         float agentRadius,
         float agentHeight,
+        int curvedPrecision,
         float mergeDistance,
         LayerMask obstacleMask,
         LayerMask walkableMask)
@@ -29,13 +32,15 @@ public static class NodeGraphBake
                         viewRange,
                         agentRadius,
                         agentHeight,
+                        curvedPrecision,
                         obstacleMask,
                         walkableMask),
                     mergeDistance);
 
             for (int i = 0; i < visible.Count; i++)
             {
-                Vector3 node = visible[i];
+                Vector3 node =
+                    visible[i];
 
                 if (ContainsPoint(
                     graph,
@@ -57,7 +62,8 @@ public static class NodeGraphBake
         Vector3 target,
         float range)
     {
-        float sqr = range * range;
+        float sqr =
+            range * range;
 
         for (int i = 0; i < points.Count; i++)
         {
