@@ -6,6 +6,7 @@ using UnityEngine;
 public static class CornerDetection
 {
     static readonly Collider[] _overlapResults = new Collider[256];
+    static readonly Collider[] _architectureResults = new Collider[256];
     static readonly Collider[] _capsuleHits = new Collider[64];
     static readonly RaycastHit[] _groundHits = new RaycastHit[64];
 
@@ -29,7 +30,6 @@ public static class CornerDetection
     {
         return new Vector3(dir.z, 0f, -dir.x);
     }
-
     static float Cross2D(Vector3 a, Vector3 b, Vector3 c)
     {
         Vector3 ab = b - a;
@@ -268,9 +268,9 @@ public static class CornerDetection
     }
 
     static void AddBoundsSliceCorners(
-     Dictionary<Vector2Int, Vector3> unique,
-     Bounds b,
-     float sliceY)
+        Dictionary<Vector2Int, Vector3> unique,
+        Bounds b,
+        float sliceY)
     {
         AddUnique(unique,
             new Vector3(
@@ -297,6 +297,67 @@ public static class CornerDetection
                 b.max.z));
     }
 
+    static void AddEdgeIntersectionPoint(
+        Dictionary<Vector2Int, Vector3> unique,
+        Vector3 a,
+        Vector3 b,
+        float agentBottom,
+        float agentTop)
+    {
+        bool aInside =
+            a.y >= agentBottom &&
+            a.y <= agentTop;
+
+        bool bInside =
+            b.y >= agentBottom &&
+            b.y <= agentTop;
+
+        if (aInside)
+        {
+            a.y = agentBottom;
+            AddUnique(unique, a);
+        }
+
+        if (bInside)
+        {
+            b.y = agentBottom;
+            AddUnique(unique, b);
+        }
+
+        if ((a.y < agentBottom && b.y < agentBottom) ||
+            (a.y > agentTop && b.y > agentTop))
+            return;
+
+        float[] slices =
+        {
+            agentBottom,
+            agentTop
+        };
+
+        for (int i = 0; i < slices.Length; i++)
+        {
+            float slice = slices[i];
+
+            float delta = b.y - a.y;
+
+            if (Mathf.Abs(delta) <= 0.0001f)
+                continue;
+
+            float t =
+                (slice - a.y) / delta;
+
+            if (t < 0f || t > 1f)
+                continue;
+
+            Vector3 point =
+                Vector3.Lerp(a, b, t);
+
+            point.y = agentBottom;
+
+            AddUnique(unique, point);
+        }
+    }
+
     static List<Vector3> ExtractContour(
         Collider collider,
         float agentBottom,
@@ -319,16 +380,16 @@ public static class CornerDetection
 
                     Vector3[] corners =
                     {
-                    new(+h.x,+h.y,+h.z),
-                    new(+h.x,+h.y,-h.z),
-                    new(-h.x,+h.y,-h.z),
-                    new(-h.x,+h.y,+h.z),
+                        new(+h.x,+h.y,+h.z),
+                        new(+h.x,+h.y,-h.z),
+                        new(-h.x,+h.y,-h.z),
+                        new(-h.x,+h.y,+h.z),
 
-                    new(+h.x,-h.y,+h.z),
-                    new(+h.x,-h.y,-h.z),
-                    new(-h.x,-h.y,-h.z),
-                    new(-h.x,-h.y,+h.z),
-                };
+                        new(+h.x,-h.y,+h.z),
+                        new(+h.x,-h.y,-h.z),
+                        new(-h.x,-h.y,-h.z),
+                        new(-h.x,-h.y,+h.z),
+                    };
 
                     bool foundValidVertex = false;
 
@@ -582,67 +643,180 @@ public static class CornerDetection
 
         return BuildConvexHull(result);
     }
-    static void AddEdgeIntersectionPoint(
-    Dictionary<Vector2Int, Vector3> unique,
-    Vector3 a,
-    Vector3 b,
-    float agentBottom,
-    float agentTop)
+
+    static IEnumerable<Vector3> GenerateArchitectureNodes(
+      MeshCollider meshCollider,
+      float agentBottom,
+      float agentRadius,
+      float agentHeight,
+      LayerMask obstacleMask,
+      LayerMask architectureMask,
+      LayerMask walkableMask)
     {
-        bool aInside =
-            a.y >= agentBottom &&
-            a.y <= agentTop;
+        if (meshCollider.sharedMesh == null)
+            yield break;
 
-        bool bInside =
-            b.y >= agentBottom &&
-            b.y <= agentTop;
+        Mesh mesh =
+            meshCollider.sharedMesh;
 
-        // uno dentro = sirve
-        if (aInside)
+        Vector3[] verts =
+            mesh.vertices;
+
+        int[] tris =
+            mesh.triangles;
+
+        Transform t =
+            meshCollider.transform;
+
+        Dictionary<Vector2Int, Vector3> unique =
+            new();
+
+        Dictionary<Vector2Int, List<Vector3>> cornerMap =
+            new();
+
+        float agentTop =
+            agentBottom + agentHeight;
+
+        // =========================
+        // DETECTAR ESQUINAS REALES
+        // =========================
+
+        for (int i = 0; i < tris.Length; i += 3)
         {
-            a.y = agentBottom;
-            AddUnique(unique, a);
-        }
+            Vector3 a =
+                t.TransformPoint(
+                    verts[tris[i]]);
 
-        if (bInside)
-        {
-            b.y = agentBottom;
-            AddUnique(unique, b);
-        }
+            Vector3 b =
+                t.TransformPoint(
+                    verts[tris[i + 1]]);
 
-        // ambos del mismo lado = no cruzan slice
-        if ((a.y < agentBottom && b.y < agentBottom) ||
-            (a.y > agentTop && b.y > agentTop))
-            return;
+            Vector3 c =
+                t.TransformPoint(
+                    verts[tris[i + 2]]);
 
-        float[] slices =
-        {
-        agentBottom,
-        agentTop
-    };
+            Vector3 normal =
+                Vector3.Cross(
+                    b - a,
+                    c - a).normalized;
 
-        for (int i = 0; i < slices.Length; i++)
-        {
-            float slice = slices[i];
-
-            float delta = b.y - a.y;
-
-            if (Mathf.Abs(delta) <= 0.0001f)
+            // ignorar piso/techo
+            if (Mathf.Abs(normal.y) > 0.15f)
                 continue;
 
-            float t =
-                (slice - a.y) / delta;
-
-            if (t < 0f || t > 1f)
+            // triángulo fuera del rango vertical
+            if ((a.y < agentBottom && b.y < agentBottom && c.y < agentBottom) ||
+                (a.y > agentTop && b.y > agentTop && c.y > agentTop))
                 continue;
 
-            Vector3 point =
-                Vector3.Lerp(a, b, t);
+            Vector3[] triVerts =
+            {
+            a, b, c
+        };
 
-            point.y = agentBottom;
+            for (int v = 0; v < 3; v++)
+            {
+                Vector3 vertex =
+                    triVerts[v];
 
-            AddUnique(unique, point);
+                Vector2Int key = new(
+                    Mathf.RoundToInt(vertex.x / VERTEX_MERGE),
+                    Mathf.RoundToInt(vertex.z / VERTEX_MERGE));
+
+                if (!cornerMap.TryGetValue(
+                    key,
+                    out List<Vector3> normals))
+                {
+                    normals = new();
+
+                    cornerMap.Add(
+                        key,
+                        normals);
+                }
+
+                normals.Add(
+                    Flatten(normal));
+            }
         }
+
+        // =========================
+        // CREAR NODOS SOLO
+        // EN ESQUINAS REALES
+        // =========================
+
+        foreach (var pair in cornerMap)
+        {
+            List<Vector3> normals =
+                pair.Value;
+
+            if (normals.Count < 2)
+                continue;
+
+            bool isCorner = false;
+
+            Vector3 average =
+                Vector3.zero;
+
+            for (int i = 0; i < normals.Count; i++)
+            {
+                average += normals[i];
+
+                for (int j = i + 1; j < normals.Count; j++)
+                {
+                    float angle =
+                        Vector3.Angle(
+                            normals[i],
+                            normals[j]);
+
+                    // si no son casi paralelas
+                    // es una esquina real
+                    if (angle > 25f &&
+                        angle < 175f)
+                    {
+                        isCorner = true;
+                    }
+                }
+            }
+
+            if (!isCorner)
+                continue;
+
+            average =
+                Flatten(
+                    average.normalized);
+
+            Vector3 corner =
+                new(
+                    pair.Key.x * VERTEX_MERGE,
+                    agentBottom,
+                    pair.Key.y * VERTEX_MERGE);
+
+            Vector3 candidate =
+                corner + average *
+                (agentRadius + EXTRA_OFFSET);
+
+            if (!TrySnapToGround(
+                candidate,
+                agentHeight,
+                agentRadius,
+                meshCollider,
+                obstacleMask | architectureMask,
+                walkableMask,
+                out candidate))
+                continue;
+
+            Vector2Int finalKey = new(
+                Mathf.RoundToInt(candidate.x / VERTEX_MERGE),
+                Mathf.RoundToInt(candidate.z / VERTEX_MERGE));
+
+            if (unique.ContainsKey(finalKey))
+                continue;
+
+            unique.Add(finalKey, candidate);
+        }
+
+        foreach (var pair in unique)
+            yield return pair.Value;
     }
     static IEnumerable<Vector3> GenerateCornerNodes(
         Collider collider,
@@ -725,6 +899,7 @@ public static class CornerDetection
         float agentHeight,
         int curvedPrecision,
         LayerMask obstacleMask,
+        LayerMask architectureMask,
         LayerMask walkableMask)
     {
         if (!TryGetGround(
@@ -740,14 +915,14 @@ public static class CornerDetection
         Vector3 detectionOrigin =
             groundPoint + Vector3.up * (agentHeight * 0.5f);
 
-        int count = Physics.OverlapSphereNonAlloc(
+        int obstacleCount = Physics.OverlapSphereNonAlloc(
             detectionOrigin,
             viewRange,
             _overlapResults,
             obstacleMask,
             QueryTriggerInteraction.Ignore);
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < obstacleCount; i++)
         {
             Collider collider =
                 _overlapResults[i];
@@ -764,7 +939,7 @@ public static class CornerDetection
                 agentRadius,
                 agentHeight,
                 curvedPrecision,
-                obstacleMask,
+                obstacleMask | architectureMask,
                 walkableMask))
             {
                 Vector3 eye =
@@ -778,7 +953,55 @@ public static class CornerDetection
                 if (Perception.HasLineOfSight(
                     eye,
                     target,
-                    obstacleMask))
+                    obstacleMask | architectureMask))
+                {
+                    yield return node;
+                }
+            }
+        }
+
+        int architectureCount = Physics.OverlapSphereNonAlloc(
+            detectionOrigin,
+            viewRange,
+            _architectureResults,
+            architectureMask,
+            QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < architectureCount; i++)
+        {
+            Collider collider =
+                _architectureResults[i];
+
+            if (!NeedsToBeAvoided(
+                collider,
+                agentBottom,
+                agentHeight))
+                continue;
+
+            if (collider is not MeshCollider meshCollider)
+                continue;
+
+            foreach (Vector3 node in GenerateArchitectureNodes(
+                meshCollider,
+                agentBottom,
+                agentRadius,
+                agentHeight,
+                obstacleMask,
+                architectureMask,
+                walkableMask))
+            {
+                Vector3 eye =
+                    groundPoint +
+                    Vector3.up * (agentHeight * 0.5f);
+
+                Vector3 target =
+                    node +
+                    Vector3.up * (agentHeight * 0.5f);
+
+                if (Perception.HasLineOfSight(
+                    eye,
+                    target,
+                    obstacleMask | architectureMask))
                 {
                     yield return node;
                 }

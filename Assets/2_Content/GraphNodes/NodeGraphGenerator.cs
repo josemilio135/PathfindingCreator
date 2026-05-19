@@ -5,8 +5,11 @@ using UnityEngine;
 
 public class NodeGraphGenerator : MonoBehaviour
 {
+    // NodeGraphGenerator.cs
+
     [Header("Detection")]
     [SerializeField] LayerMask _obstacleMask;
+    [SerializeField] LayerMask _architectureMask;
     [SerializeField] LayerMask _walkableMask;
 
     [SerializeField, Min(0f)]
@@ -63,14 +66,15 @@ public class NodeGraphGenerator : MonoBehaviour
             UndoLastBake();
 
         var points = NodeGraphBake.GenerateGraph(
-            transform.position,
-            _viewRange,
-            _agentRadius,
-            _agentHeight,
-            _curvedSurfacePrecision,
-            _nodeMergeDistance,
-            _obstacleMask,
-            _walkableMask);
+        transform.position,
+        _viewRange,
+        _agentRadius,
+        _agentHeight,
+        _curvedSurfacePrecision,
+        _nodeMergeDistance,
+        _obstacleMask,
+        _architectureMask,
+        _walkableMask);
 
         InstantiateNodes(points);
 
@@ -100,6 +104,7 @@ public class NodeGraphGenerator : MonoBehaviour
             _agentHeight,
             _curvedSurfacePrecision,
             _obstacleMask,
+            _architectureMask,
             _walkableMask);
     }
 
