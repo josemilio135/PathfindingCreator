@@ -5,10 +5,11 @@ public static class CornerDetection
 {
     static readonly Collider[] _overlapResults = new Collider[256];
     static readonly Collider[] _clearanceHits = new Collider[32];
-    static readonly RaycastHit[] _groundHits = new RaycastHit[32];
+    static readonly RaycastHit[] _groundHits = new RaycastHit[64];
 
     const float VERTEX_MERGE = 0.025f;
     const float MIN_CORNER_ANGLE = 15f;
+    const float EXTRA_OFFSET = 0.05f;
 
     static Vector3 Flatten(Vector3 v)
     {
@@ -22,14 +23,38 @@ public static class CornerDetection
         return v / mag;
     }
 
+    static float Cross2D(Vector3 a, Vector3 b, Vector3 c)
+    {
+        Vector3 ab = b - a;
+        Vector3 ac = c - a;
+
+        return (ab.x * ac.z) - (ab.z * ac.x);
+    }
+
     static Vector3 PerpendicularRight(Vector3 dir)
     {
         return new Vector3(dir.z, 0f, -dir.x);
     }
 
-    static bool IsWalkableNormal(Vector3 n)
+    static bool IsWalkableNormal(Vector3 normal)
     {
-        return Vector3.Dot(n, Vector3.up) >= 0.55f;
+        return Vector3.Dot(normal, Vector3.up) >= 0.55f;
+    }
+
+    static bool IsObstacleRelevant(
+        Collider collider,
+        float agentBottom,
+        float agentHeight)
+    {
+        Bounds b = collider.bounds;
+
+        float obstacleBottom = b.min.y;
+        float obstacleTop = b.max.y;
+
+        float agentTop = agentBottom + agentHeight;
+
+        return obstacleTop > agentBottom &&
+               obstacleBottom < agentTop;
     }
 
     static bool IsInsideObstacle(
@@ -60,6 +85,12 @@ public static class CornerDetection
             if (c == ignored)
                 continue;
 
+            if (!IsObstacleRelevant(
+                c,
+                point.y,
+                agentHeight))
+                continue;
+
             return true;
         }
 
@@ -72,6 +103,7 @@ public static class CornerDetection
         float agentRadius,
         Collider ignored,
         LayerMask obstacleMask,
+        LayerMask walkableMask,
         out Vector3 snapped)
     {
         snapped = point;
@@ -83,9 +115,12 @@ public static class CornerDetection
             origin,
             Vector3.down,
             _groundHits,
-            agentHeight + 20f,
-            ~0,
+            agentHeight + 50f,
+            walkableMask,
             QueryTriggerInteraction.Ignore);
+
+        if (count <= 0)
+            return false;
 
         float bestY = float.MinValue;
         bool found = false;
@@ -93,9 +128,6 @@ public static class CornerDetection
         for (int i = 0; i < count; i++)
         {
             RaycastHit hit = _groundHits[i];
-
-            if (hit.collider == ignored)
-                continue;
 
             if (!IsWalkableNormal(hit.normal))
                 continue;
@@ -143,10 +175,10 @@ public static class CornerDetection
         for (int i = 0; i < points.Count; i++)
         {
             while (hull.Count >= 2 &&
-                Cross(
-                    hull[hull.Count - 2],
-                    hull[hull.Count - 1],
-                    points[i]) <= 0f)
+                   Cross2D(
+                       hull[hull.Count - 2],
+                       hull[hull.Count - 1],
+                       points[i]) <= 0f)
             {
                 hull.RemoveAt(hull.Count - 1);
             }
@@ -159,10 +191,10 @@ public static class CornerDetection
         for (int i = points.Count - 2; i >= 0; i--)
         {
             while (hull.Count > lowerCount &&
-                Cross(
-                    hull[hull.Count - 2],
-                    hull[hull.Count - 1],
-                    points[i]) <= 0f)
+                   Cross2D(
+                       hull[hull.Count - 2],
+                       hull[hull.Count - 1],
+                       points[i]) <= 0f)
             {
                 hull.RemoveAt(hull.Count - 1);
             }
@@ -175,17 +207,21 @@ public static class CornerDetection
         return hull;
     }
 
-    static float Cross(Vector3 a, Vector3 b, Vector3 c)
+    static void AddUnique(
+        Dictionary<Vector2Int, Vector3> map,
+        Vector3 point)
     {
-        Vector3 ab = b - a;
-        Vector3 ac = c - a;
+        Vector2Int key = new(
+            Mathf.RoundToInt(point.x / VERTEX_MERGE),
+            Mathf.RoundToInt(point.z / VERTEX_MERGE));
 
-        return (ab.x * ac.z) - (ab.z * ac.x);
+        if (!map.ContainsKey(key))
+            map.Add(key, point);
     }
 
     static List<Vector3> ExtractContour(Collider collider)
     {
-        List<Vector3> points = new();
+        Dictionary<Vector2Int, Vector3> unique = new();
 
         switch (collider)
         {
@@ -198,16 +234,26 @@ public static class CornerDetection
 
                     Vector3[] corners =
                     {
-                    new(+h.x, 0f, +h.z),
-                    new(+h.x, 0f, -h.z),
-                    new(-h.x, 0f, -h.z),
-                    new(-h.x, 0f, +h.z),
+                    new(+h.x, +h.y, +h.z),
+                    new(+h.x, +h.y, -h.z),
+                    new(-h.x, +h.y, -h.z),
+                    new(-h.x, +h.y, +h.z),
+
+                    new(+h.x, -h.y, +h.z),
+                    new(+h.x, -h.y, -h.z),
+                    new(-h.x, -h.y, -h.z),
+                    new(-h.x, -h.y, +h.z),
                 };
 
                     for (int i = 0; i < corners.Length; i++)
-                        points.Add(t.TransformPoint(c + corners[i]));
+                    {
+                        Vector3 world =
+                            t.TransformPoint(c + corners[i]);
 
-                    return points;
+                        AddUnique(unique, world);
+                    }
+
+                    break;
                 }
 
             case SphereCollider sphere:
@@ -223,25 +269,43 @@ public static class CornerDetection
                     Vector3 center =
                         t.TransformPoint(sphere.center);
 
-                    const int steps = 16;
+                    const int steps = 24;
 
                     for (int i = 0; i < steps; i++)
                     {
                         float a =
-                            i / (float)steps * Mathf.PI * 2f;
+                            i / (float)steps *
+                            Mathf.PI * 2f;
 
                         Vector3 dir =
                             new(Mathf.Cos(a), 0f, Mathf.Sin(a));
 
-                        points.Add(center + dir * radius);
+                        AddUnique(unique,
+                            center + dir * radius);
                     }
 
-                    return points;
+                    break;
                 }
 
             case CapsuleCollider capsule:
                 {
                     Transform t = capsule.transform;
+
+                    Vector3 axis =
+                        capsule.direction switch
+                        {
+                            0 => t.right,
+                            2 => t.forward,
+                            _ => t.up
+                        };
+
+                    axis = Flatten(axis);
+
+                    Vector3 side =
+                        PerpendicularRight(axis);
+
+                    Vector3 center =
+                        t.TransformPoint(capsule.center);
 
                     float radius =
                         capsule.radius *
@@ -249,72 +313,104 @@ public static class CornerDetection
                             t.lossyScale.x,
                             t.lossyScale.z);
 
-                    Vector3 center =
-                        t.TransformPoint(capsule.center);
+                    float height =
+                        Mathf.Max(
+                            capsule.height *
+                            Mathf.Abs(t.lossyScale.y),
+                            radius * 2f);
+
+                    float half =
+                        (height * 0.5f) - radius;
+
+                    Vector3 p1 =
+                        center + axis * half;
+
+                    Vector3 p2 =
+                        center - axis * half;
 
                     const int steps = 16;
 
                     for (int i = 0; i < steps; i++)
                     {
                         float a =
-                            i / (float)steps * Mathf.PI * 2f;
+                            i / (float)steps *
+                            Mathf.PI * 2f;
 
                         Vector3 dir =
-                            new(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                            (axis * Mathf.Cos(a)) +
+                            (side * Mathf.Sin(a));
 
-                        points.Add(center + dir * radius);
+                        dir = Flatten(dir);
+
+                        AddUnique(unique,
+                            p1 + dir * radius);
+
+                        AddUnique(unique,
+                            p2 + dir * radius);
                     }
 
-                    return points;
+                    break;
                 }
 
             case MeshCollider meshCollider:
                 {
                     if (meshCollider.sharedMesh == null)
-                        return points;
+                        return new();
 
-                    Mesh mesh = meshCollider.sharedMesh;
-                    Transform t = meshCollider.transform;
+                    Mesh mesh =
+                        meshCollider.sharedMesh;
 
-                    Vector3[] verts = mesh.vertices;
+                    Vector3[] verts =
+                        mesh.vertices;
 
-                    Dictionary<Vector2Int, Vector3> unique = new();
+                    Transform t =
+                        meshCollider.transform;
 
                     for (int i = 0; i < verts.Length; i++)
                     {
                         Vector3 world =
                             t.TransformPoint(verts[i]);
 
-                        Vector2Int key = new(
-                            Mathf.RoundToInt(world.x / VERTEX_MERGE),
-                            Mathf.RoundToInt(world.z / VERTEX_MERGE));
-
-                        if (!unique.ContainsKey(key))
-                            unique.Add(key, world);
+                        AddUnique(unique, world);
                     }
 
-                    foreach (var pair in unique)
-                        points.Add(pair.Value);
+                    break;
+                }
 
-                    return BuildConvexHull(points);
+            default:
+                {
+                    Bounds b = collider.bounds;
+
+                    AddUnique(unique,
+                        new Vector3(b.min.x, 0f, b.min.z));
+
+                    AddUnique(unique,
+                        new Vector3(b.min.x, 0f, b.max.z));
+
+                    AddUnique(unique,
+                        new Vector3(b.max.x, 0f, b.min.z));
+
+                    AddUnique(unique,
+                        new Vector3(b.max.x, 0f, b.max.z));
+
+                    break;
                 }
         }
 
-        Bounds b = collider.bounds;
+        List<Vector3> result = new();
 
-        points.Add(new Vector3(b.min.x, b.center.y, b.min.z));
-        points.Add(new Vector3(b.min.x, b.center.y, b.max.z));
-        points.Add(new Vector3(b.max.x, b.center.y, b.min.z));
-        points.Add(new Vector3(b.max.x, b.center.y, b.max.z));
+        foreach (var pair in unique)
+            result.Add(pair.Value);
 
-        return points;
+        return BuildConvexHull(result);
     }
 
     static IEnumerable<Vector3> GenerateCornerNodes(
         Collider collider,
         float agentRadius,
         float agentHeight,
-        LayerMask obstacleMask)
+        LayerMask obstacleMask,
+        LayerMask walkableMask)
     {
         List<Vector3> contour =
             ExtractContour(collider);
@@ -322,10 +418,8 @@ public static class CornerDetection
         if (contour.Count < 2)
             yield break;
 
-        contour = BuildConvexHull(contour);
-
         float offset =
-            agentRadius + 0.05f;
+            agentRadius + EXTRA_OFFSET;
 
         for (int i = 0; i < contour.Count; i++)
         {
@@ -375,6 +469,7 @@ public static class CornerDetection
                 agentRadius,
                 collider,
                 obstacleMask,
+                walkableMask,
                 out candidate))
                 continue;
 
@@ -387,7 +482,8 @@ public static class CornerDetection
         float viewRange,
         float agentRadius,
         float agentHeight,
-        LayerMask obstacleMask)
+        LayerMask obstacleMask,
+        LayerMask walkableMask)
     {
         int count = Physics.OverlapSphereNonAlloc(
             origin,
@@ -405,7 +501,8 @@ public static class CornerDetection
                 collider,
                 agentRadius,
                 agentHeight,
-                obstacleMask))
+                obstacleMask,
+                walkableMask))
             {
                 if (Perception.HasLineOfSight(
                     origin,

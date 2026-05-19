@@ -5,11 +5,11 @@ public class NodeGraphGenerator : MonoBehaviour
 {
     [Header("Detection")]
     [SerializeField] LayerMask _obstacleMask;
+    [SerializeField] LayerMask _walkableMask;
     [SerializeField, Min(0f)] float _viewRange = 15f;
 
     [Header("Agent")]
     [SerializeField, Min(0.01f)] float _agentHeight = 2f;
-
     [SerializeField, Min(0.01f)] float _agentRadius = 0.4f;
 
     [Header("Nodes")]
@@ -25,79 +25,109 @@ public class NodeGraphGenerator : MonoBehaviour
 
     Transform _lastGeneratedContainer;
 
-
     public void BakeOnlyThisNodes()
     {
-        if (!ValidatePrefab()) return;
-        if (_automaticUndo) UndoLastBake();
+        if (!ValidatePrefab())
+            return;
+
+        if (_automaticUndo)
+            UndoLastBake();
 
         var points = GetMergedCorners();
+
         InstantiateNodes(points);
+
         Debug.Log($"Bake local. {points.Count} nodos.");
     }
 
     public void BakeAllNodes()
     {
-        if (!ValidatePrefab()) return;
-        if (_automaticUndo) UndoLastBake();
+        if (!ValidatePrefab())
+            return;
+
+        if (_automaticUndo)
+            UndoLastBake();
 
         var points = NodeGraphBake.GenerateGraph(
             transform.position,
-            _viewRange, _agentRadius, _agentHeight,
-            _nodeMergeDistance, _obstacleMask);
+            _viewRange,
+            _agentRadius,
+            _agentHeight,
+            _nodeMergeDistance,
+            _obstacleMask,
+            _walkableMask);
 
         InstantiateNodes(points);
+
         Debug.Log($"Bake completo. {points.Count} nodos.");
     }
 
     public void UndoLastBake()
     {
-        if (_lastGeneratedContainer == null) return;
+        if (_lastGeneratedContainer == null)
+            return;
+
 #if UNITY_EDITOR
         DestroyImmediate(_lastGeneratedContainer.gameObject);
 #else
         Destroy(_lastGeneratedContainer.gameObject);
 #endif
+
         _lastGeneratedContainer = null;
-        Debug.Log("Último bake borrado.");
     }
 
     public IEnumerable<Vector3> GetVisibleCorners() =>
         CornerDetection.GetVisibleCorners(
-            transform.position, _viewRange,
-            _agentRadius,  _agentHeight,
-            _obstacleMask);
+            transform.position,
+            _viewRange,
+            _agentRadius,
+            _agentHeight,
+            _obstacleMask,
+            _walkableMask);
 
     public List<Vector3> GetMergedCorners() =>
-        CornerDetection.GetMergedCorners(GetVisibleCorners(), _nodeMergeDistance);
-
+        CornerDetection.GetMergedCorners(
+            GetVisibleCorners(),
+            _nodeMergeDistance);
 
     void InstantiateNodes(List<Vector3> points)
     {
-        Transform container = CreateNodeContainer();
+        Transform container =
+            CreateNodeContainer();
 
         for (int i = 0; i < points.Count; i++)
         {
 #if UNITY_EDITOR
-            var node = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(_prefab, container);
+            var node =
+                (GameObject)UnityEditor.PrefabUtility
+                .InstantiatePrefab(_prefab, container);
 #else
-            var node = Instantiate(_prefab, container);
+            var node =
+                Instantiate(_prefab, container);
 #endif
+
             node.transform.position = points[i];
         }
     }
 
     Transform CreateNodeContainer()
     {
-        var container = new GameObject($"{gameObject.name}_PathNodes");
-        _lastGeneratedContainer = container.transform;
+        GameObject go =
+            new($"{gameObject.name}_PathNodes");
+
+        _lastGeneratedContainer =
+            go.transform;
+
         return _lastGeneratedContainer;
     }
 
     bool ValidatePrefab()
     {
-        if (_prefab != null) return true;
+        if (_prefab != null)
+            return true;
+
         Debug.LogWarning("No prefab assigned.");
+
         return false;
     }
 }
