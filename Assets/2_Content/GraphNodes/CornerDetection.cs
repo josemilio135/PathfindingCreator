@@ -267,6 +267,36 @@ public static class CornerDetection
                obstacleBottom < agentTop;
     }
 
+    static void AddBoundsSliceCorners(
+     Dictionary<Vector2Int, Vector3> unique,
+     Bounds b,
+     float sliceY)
+    {
+        AddUnique(unique,
+            new Vector3(
+                b.min.x,
+                sliceY,
+                b.min.z));
+
+        AddUnique(unique,
+            new Vector3(
+                b.min.x,
+                sliceY,
+                b.max.z));
+
+        AddUnique(unique,
+            new Vector3(
+                b.max.x,
+                sliceY,
+                b.min.z));
+
+        AddUnique(unique,
+            new Vector3(
+                b.max.x,
+                sliceY,
+                b.max.z));
+    }
+
     static List<Vector3> ExtractContour(
         Collider collider,
         float agentBottom,
@@ -289,16 +319,18 @@ public static class CornerDetection
 
                     Vector3[] corners =
                     {
-                        new(+h.x,+h.y,+h.z),
-                        new(+h.x,+h.y,-h.z),
-                        new(-h.x,+h.y,-h.z),
-                        new(-h.x,+h.y,+h.z),
+                    new(+h.x,+h.y,+h.z),
+                    new(+h.x,+h.y,-h.z),
+                    new(-h.x,+h.y,-h.z),
+                    new(-h.x,+h.y,+h.z),
 
-                        new(+h.x,-h.y,+h.z),
-                        new(+h.x,-h.y,-h.z),
-                        new(-h.x,-h.y,-h.z),
-                        new(-h.x,-h.y,+h.z),
-                    };
+                    new(+h.x,-h.y,+h.z),
+                    new(+h.x,-h.y,-h.z),
+                    new(-h.x,-h.y,-h.z),
+                    new(-h.x,-h.y,+h.z),
+                };
+
+                    bool foundValidVertex = false;
 
                     for (int i = 0; i < corners.Length; i++)
                     {
@@ -315,6 +347,25 @@ public static class CornerDetection
                         world.y = agentBottom;
 
                         AddUnique(unique, world);
+
+                        foundValidVertex = true;
+                    }
+
+                    if (!foundValidVertex)
+                    {
+                        Bounds b = box.bounds;
+
+                        if (IntersectsAgentHeight(
+                            b.min.y,
+                            b.max.y,
+                            agentBottom,
+                            agentTop))
+                        {
+                            AddBoundsSliceCorners(
+                                unique,
+                                b,
+                                agentBottom);
+                        }
                     }
 
                     break;
@@ -462,6 +513,8 @@ public static class CornerDetection
                     Transform t =
                         meshCollider.transform;
 
+                    bool foundValidVertex = false;
+
                     for (int i = 0; i < verts.Length; i++)
                     {
                         Vector3 world =
@@ -477,6 +530,25 @@ public static class CornerDetection
                         world.y = agentBottom;
 
                         AddUnique(unique, world);
+
+                        foundValidVertex = true;
+                    }
+
+                    if (!foundValidVertex)
+                    {
+                        Bounds b = meshCollider.bounds;
+
+                        if (IntersectsAgentHeight(
+                            b.min.y,
+                            b.max.y,
+                            agentBottom,
+                            agentTop))
+                        {
+                            AddBoundsSliceCorners(
+                                unique,
+                                b,
+                                agentBottom);
+                        }
                     }
 
                     break;
@@ -493,29 +565,10 @@ public static class CornerDetection
                         agentTop))
                         return new();
 
-                    AddUnique(unique,
-                        new Vector3(
-                            b.min.x,
-                            agentBottom,
-                            b.min.z));
-
-                    AddUnique(unique,
-                        new Vector3(
-                            b.min.x,
-                            agentBottom,
-                            b.max.z));
-
-                    AddUnique(unique,
-                        new Vector3(
-                            b.max.x,
-                            agentBottom,
-                            b.min.z));
-
-                    AddUnique(unique,
-                        new Vector3(
-                            b.max.x,
-                            agentBottom,
-                            b.max.z));
+                    AddBoundsSliceCorners(
+                        unique,
+                        b,
+                        agentBottom);
 
                     break;
                 }
@@ -528,7 +581,6 @@ public static class CornerDetection
 
         return BuildConvexHull(result);
     }
-
     static IEnumerable<Vector3> GenerateCornerNodes(
         Collider collider,
         float agentBottom,
