@@ -43,7 +43,7 @@ public static class CornerDetection
         return Vector3.Dot(normal, Vector3.up) >= 0.55f;
     }
 
-    static bool HasHeadClearance(
+    static bool HasClearance(
         Vector3 point,
         float agentHeight,
         float agentRadius,
@@ -73,12 +73,16 @@ public static class CornerDetection
 
             Bounds b = c.bounds;
 
-            // Ignora obstáculos completamente arriba de la cabeza
-            if (b.min.y >= point.y + agentHeight)
+            float obstacleBottom = b.min.y;
+            float obstacleTop = b.max.y;
+
+            float agentBottom = point.y;
+            float agentTop = point.y + agentHeight;
+
+            if (obstacleBottom >= agentTop)
                 continue;
 
-            // Ignora obstáculos completamente debajo del suelo
-            if (b.max.y <= point.y)
+            if (obstacleTop <= agentBottom)
                 continue;
 
             return false;
@@ -124,7 +128,7 @@ public static class CornerDetection
 
             Vector3 point = hit.point;
 
-            if (!HasHeadClearance(
+            if (!HasClearance(
                 point,
                 agentHeight,
                 agentRadius,
@@ -145,6 +149,23 @@ public static class CornerDetection
         snapped.y = bestY;
 
         return true;
+    }
+
+    static bool NeedsToBeAvoided(
+        Collider obstacle,
+        float groundY,
+        float agentHeight)
+    {
+        Bounds b = obstacle.bounds;
+
+        float obstacleBottom = b.min.y;
+        float obstacleTop = b.max.y;
+
+        float agentBottom = groundY;
+        float agentTop = groundY + agentHeight;
+
+        return obstacleTop > agentBottom &&
+               obstacleBottom < agentTop;
     }
 
     static void AddUnique(
@@ -211,11 +232,29 @@ public static class CornerDetection
         return hull;
     }
 
+    static bool IntersectsAgentHeight(
+        float y,
+        float obstacleHeight,
+        float agentBottom,
+        float agentTop)
+    {
+        float obstacleBottom = y;
+        float obstacleTop = y + obstacleHeight;
+
+        return obstacleTop > agentBottom &&
+               obstacleBottom < agentTop;
+    }
+
     static List<Vector3> ExtractContour(
         Collider collider,
+        float agentBottom,
+        float agentHeight,
         int curvedPrecision)
     {
         Dictionary<Vector2Int, Vector3> unique = new();
+
+        float agentTop =
+            agentBottom + agentHeight;
 
         switch (collider)
         {
@@ -228,22 +267,32 @@ public static class CornerDetection
 
                     Vector3[] corners =
                     {
-                    new(+h.x,+h.y,+h.z),
-                    new(+h.x,+h.y,-h.z),
-                    new(-h.x,+h.y,-h.z),
-                    new(-h.x,+h.y,+h.z),
+                        new(+h.x,+h.y,+h.z),
+                        new(+h.x,+h.y,-h.z),
+                        new(-h.x,+h.y,-h.z),
+                        new(-h.x,+h.y,+h.z),
 
-                    new(+h.x,-h.y,+h.z),
-                    new(+h.x,-h.y,-h.z),
-                    new(-h.x,-h.y,-h.z),
-                    new(-h.x,-h.y,+h.z),
-                };
+                        new(+h.x,-h.y,+h.z),
+                        new(+h.x,-h.y,-h.z),
+                        new(-h.x,-h.y,-h.z),
+                        new(-h.x,-h.y,+h.z),
+                    };
 
                     for (int i = 0; i < corners.Length; i++)
                     {
-                        AddUnique(
-                            unique,
-                            t.TransformPoint(c + corners[i]));
+                        Vector3 world =
+                            t.TransformPoint(c + corners[i]);
+
+                        if (!IntersectsAgentHeight(
+                            world.y,
+                            0.01f,
+                            agentBottom,
+                            agentTop))
+                            continue;
+
+                        world.y = agentBottom;
+
+                        AddUnique(unique, world);
                     }
 
                     break;
@@ -262,6 +311,16 @@ public static class CornerDetection
                             t.lossyScale.x,
                             t.lossyScale.z);
 
+                    float top =
+                        center.y + radius;
+
+                    float bottom =
+                        center.y - radius;
+
+                    if (top < agentBottom ||
+                        bottom > agentTop)
+                        return new();
+
                     for (int i = 0; i < curvedPrecision; i++)
                     {
                         float a =
@@ -271,9 +330,12 @@ public static class CornerDetection
                         Vector3 dir =
                             new(Mathf.Cos(a), 0f, Mathf.Sin(a));
 
-                        AddUnique(
-                            unique,
-                            center + dir * radius);
+                        Vector3 point =
+                            center + dir * radius;
+
+                        point.y = agentBottom;
+
+                        AddUnique(unique, point);
                     }
 
                     break;
@@ -320,6 +382,16 @@ public static class CornerDetection
                     Vector3 p2 =
                         center - axis * half;
 
+                    float capsuleTop =
+                        center.y + height * 0.5f;
+
+                    float capsuleBottom =
+                        center.y - height * 0.5f;
+
+                    if (capsuleTop < agentBottom ||
+                        capsuleBottom > agentTop)
+                        return new();
+
                     for (int i = 0; i < curvedPrecision; i++)
                     {
                         float a =
@@ -332,8 +404,17 @@ public static class CornerDetection
 
                         dir = Flatten(dir);
 
-                        AddUnique(unique, p1 + dir * radius);
-                        AddUnique(unique, p2 + dir * radius);
+                        Vector3 aPoint =
+                            p1 + dir * radius;
+
+                        Vector3 bPoint =
+                            p2 + dir * radius;
+
+                        aPoint.y = agentBottom;
+                        bPoint.y = agentBottom;
+
+                        AddUnique(unique, aPoint);
+                        AddUnique(unique, bPoint);
                     }
 
                     break;
@@ -355,9 +436,19 @@ public static class CornerDetection
 
                     for (int i = 0; i < verts.Length; i++)
                     {
-                        AddUnique(
-                            unique,
-                            t.TransformPoint(verts[i]));
+                        Vector3 world =
+                            t.TransformPoint(verts[i]);
+
+                        if (!IntersectsAgentHeight(
+                            world.y,
+                            0.01f,
+                            agentBottom,
+                            agentTop))
+                            continue;
+
+                        world.y = agentBottom;
+
+                        AddUnique(unique, world);
                     }
 
                     break;
@@ -367,17 +458,33 @@ public static class CornerDetection
                 {
                     Bounds b = collider.bounds;
 
-                    AddUnique(unique,
-                        new Vector3(b.min.x, 0f, b.min.z));
+                    if (b.max.y < agentBottom ||
+                        b.min.y > agentTop)
+                        return new();
 
                     AddUnique(unique,
-                        new Vector3(b.min.x, 0f, b.max.z));
+                        new Vector3(
+                            b.min.x,
+                            agentBottom,
+                            b.min.z));
 
                     AddUnique(unique,
-                        new Vector3(b.max.x, 0f, b.min.z));
+                        new Vector3(
+                            b.min.x,
+                            agentBottom,
+                            b.max.z));
 
                     AddUnique(unique,
-                        new Vector3(b.max.x, 0f, b.max.z));
+                        new Vector3(
+                            b.max.x,
+                            agentBottom,
+                            b.min.z));
+
+                    AddUnique(unique,
+                        new Vector3(
+                            b.max.x,
+                            agentBottom,
+                            b.max.z));
 
                     break;
                 }
@@ -393,6 +500,7 @@ public static class CornerDetection
 
     static IEnumerable<Vector3> GenerateCornerNodes(
         Collider collider,
+        float agentBottom,
         float agentRadius,
         float agentHeight,
         int curvedPrecision,
@@ -402,6 +510,8 @@ public static class CornerDetection
         List<Vector3> contour =
             ExtractContour(
                 collider,
+                agentBottom,
+                agentHeight,
                 curvedPrecision);
 
         if (contour.Count < 2)
@@ -483,8 +593,15 @@ public static class CornerDetection
             Collider collider =
                 _overlapResults[i];
 
+            if (!NeedsToBeAvoided(
+                collider,
+                origin.y,
+                agentHeight))
+                continue;
+
             foreach (Vector3 node in GenerateCornerNodes(
                 collider,
+                origin.y,
                 agentRadius,
                 agentHeight,
                 curvedPrecision,
