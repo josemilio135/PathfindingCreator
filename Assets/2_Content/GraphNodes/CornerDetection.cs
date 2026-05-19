@@ -1,99 +1,111 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 public static class CornerDetection
 {
-    // ─────────────────────────────────────────────
-    // Buffers estáticos (evitan allocs en runtime)
-    // ─────────────────────────────────────────────
+    static readonly Collider[] _overlapResults = new Collider[256];
+    static readonly Collider[] _clearanceHits = new Collider[32];
+    static readonly RaycastHit[] _groundHits = new RaycastHit[32];
 
-    static readonly Collider[] _overlapResults = new Collider[128];
-    static readonly RaycastHit[] _rayHits = new RaycastHit[32];
-    static readonly Collider[] _clearanceHits = new Collider[8];
+    const float VERTEX_MERGE = 0.025f;
+    const float MIN_CORNER_ANGLE = 15f;
 
-    const int RADIAL_RAYS = 64;
-    const float MAX_RADIUS = 256f;
-    const int ORGANIC_VERTEX_THRESHOLD = 32;
-    const float CORNER_ANGLE_THRESHOLD = 12f;
-
-    // ─────────────────────────────────────────────
-    // Helpers geométricos
-    // ─────────────────────────────────────────────
-
-    static Vector3 Horizontal(Vector3 v)
+    static Vector3 Flatten(Vector3 v)
     {
         v.y = 0f;
-        return v == Vector3.zero ? Vector3.zero : v.normalized;
+
+        float mag = v.magnitude;
+
+        if (mag <= 0.0001f)
+            return Vector3.zero;
+
+        return v / mag;
     }
 
-    // Snap al suelo: lanza un rayo hacia abajo desde el candidato.
-    // Ignora el collider del obstáculo que lo generó para no chocar con él.
-    // Si no encuentra suelo, usa la Y del generador (fallbackY).
-    static Vector3 SnapToGround(
-    Vector3 nodePoint,
-    float agentHeight,
-    float agentRadius,
-    Collider sourceCollider,
-    LayerMask obstacleMask)
+    static Vector3 PerpendicularRight(Vector3 dir)
     {
-        Vector3 rayOrigin =
-            nodePoint + Vector3.up * (agentHeight + 1f);
+        return new Vector3(dir.z, 0f, -dir.x);
+    }
 
-        int hitCount = Physics.RaycastNonAlloc(
-            rayOrigin,
+    static bool IsWalkableNormal(Vector3 n)
+    {
+        return Vector3.Dot(n, Vector3.up) >= 0.55f;
+    }
+
+    static bool IsInsideObstacle(
+        Vector3 point,
+        float agentHeight,
+        float agentRadius,
+        Collider ignored,
+        LayerMask obstacleMask)
+    {
+        Vector3 bottom =
+            point + Vector3.up * agentRadius;
+
+        Vector3 top =
+            point + Vector3.up * (agentHeight - agentRadius);
+
+        int count = Physics.OverlapCapsuleNonAlloc(
+            bottom,
+            top,
+            agentRadius,
+            _clearanceHits,
+            obstacleMask,
+            QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < count; i++)
+        {
+            Collider c = _clearanceHits[i];
+
+            if (c == ignored)
+                continue;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool TrySnapToGround(
+        Vector3 point,
+        float agentHeight,
+        float agentRadius,
+        Collider ignored,
+        LayerMask obstacleMask,
+        out Vector3 snapped)
+    {
+        snapped = point;
+
+        Vector3 origin =
+            point + Vector3.up * (agentHeight + 2f);
+
+        int count = Physics.RaycastNonAlloc(
+            origin,
             Vector3.down,
-            _rayHits,
-            agentHeight + 10f,
+            _groundHits,
+            agentHeight + 20f,
             ~0,
             QueryTriggerInteraction.Ignore);
 
-        bool found = false;
         float bestY = float.MinValue;
+        bool found = false;
 
-        for (int i = 0; i < hitCount; i++)
+        for (int i = 0; i < count; i++)
         {
-            RaycastHit hit = _rayHits[i];
+            RaycastHit hit = _groundHits[i];
 
-            if (hit.collider == sourceCollider)
+            if (hit.collider == ignored)
                 continue;
 
-            if (Vector3.Dot(hit.normal, Vector3.up) < 0.6f)
+            if (!IsWalkableNormal(hit.normal))
                 continue;
 
-            Vector3 checkPoint = hit.point;
-
-            Vector3 bottom =
-                checkPoint + Vector3.up * agentRadius;
-
-            Vector3 top =
-                checkPoint + Vector3.up * (agentHeight - agentRadius);
-
-            int overlaps = Physics.OverlapCapsuleNonAlloc(
-                bottom,
-                top,
+            if (IsInsideObstacle(
+                hit.point,
+                agentHeight,
                 agentRadius,
-                _clearanceHits,
-                obstacleMask,
-                QueryTriggerInteraction.Ignore);
-
-            bool blocked = false;
-
-            for (int j = 0; j < overlaps; j++)
-            {
-                Collider c = _clearanceHits[j];
-
-                if (c == sourceCollider)
-                    continue;
-
-                if (c == hit.collider)
-                    continue;
-
-                blocked = true;
-                break;
-            }
-
-            if (blocked)
+                ignored,
+                obstacleMask))
                 continue;
 
             if (hit.point.y > bestY)
@@ -103,419 +115,317 @@ public static class CornerDetection
             }
         }
 
-        nodePoint.y = found
-            ? bestY
-            : sourceCollider.bounds.min.y;
+        if (!found)
+            return false;
 
-        return nodePoint;
+        snapped.y = bestY;
+
+        return true;
     }
 
-    // Verifica que el agente quepa en el punto (sin chocar con obstáculos).
-    // Hace un OverlapCapsule con el radio mínimo del agente.
-    // El collider fuente se ignora (es el obstáculo mismo, no cuenta).
-    
-
-    // Altura del ecuador más ancho del collider (para la roca-huevo).
-    // Samplea en varias alturas y elige la que tiene mayor radio XZ real.
-    static float FindWidestY(Collider collider, int samples = 8)
+    static List<Vector3> BuildConvexHull(List<Vector3> points)
     {
-        Bounds b = collider.bounds;
-        float bestY = b.center.y;
-        float bestR = 0f;
+        if (points.Count <= 3)
+            return new List<Vector3>(points);
 
-        for (int i = 0; i < samples; i++)
+        points.Sort((a, b) =>
         {
-            float t = (i + 0.5f) / samples;
-            float sampleY = Mathf.Lerp(b.min.y, b.max.y, t);
-            Vector3 ctr = new(b.center.x, sampleY, b.center.z);
+            int x = a.x.CompareTo(b.x);
 
-            // Raycast lateral para medir radio real en esta altura
-            Vector3 testOrigin = ctr + Vector3.right * MAX_RADIUS;
-            float r = b.extents.x; // fallback si no pega
+            if (x != 0)
+                return x;
 
-            if (Physics.Raycast(testOrigin, Vector3.left, out RaycastHit hit, MAX_RADIUS * 2f)
-                && hit.collider == collider)
-            {
-                r = Mathf.Abs(hit.point.x - ctr.x);
-            }
+            return a.z.CompareTo(b.z);
+        });
 
-            if (r > bestR) { bestR = r; bestY = sampleY; }
-        }
-
-        return bestY;
-    }
-
-    // ─────────────────────────────────────────────
-    // Primitivos — cada uno con su lógica exacta
-    // ─────────────────────────────────────────────
-
-    static IEnumerable<Vector3> GetBoxCorners(
-        BoxCollider box, float totalOffset,
-        float agentHeight, float agentRadius,
-        float fallbackY, LayerMask obstacleMask)
-    {
-        Transform t = box.transform;
-        Vector3 ctr = box.center;
-        Vector3 half = box.size * 0.5f;
-
-        Vector3[] localCorners =
-        {
-            ctr + new Vector3( half.x, 0f,  half.z),
-            ctr + new Vector3( half.x, 0f, -half.z),
-            ctr + new Vector3(-half.x, 0f,  half.z),
-            ctr + new Vector3(-half.x, 0f, -half.z),
-        };
-
-        for (int i = 0; i < localCorners.Length; i++)
-        {
-            Vector3 worldCorner = t.TransformPoint(localCorners[i]);
-            Vector3 dir = Horizontal(worldCorner - t.TransformPoint(ctr));
-            if (dir == Vector3.zero) continue;
-
-            Vector3 candidate = worldCorner + dir * totalOffset;
-            candidate = SnapToGround(
-     candidate,
-     agentHeight,
-     agentRadius,
-     box,
-     obstacleMask);
-
-                yield return candidate;
-        }
-    }
-
-    static IEnumerable<Vector3> GetSphereCorners(
-        SphereCollider sphere, float totalOffset,
-        float agentHeight, float agentRadius,
-        float fallbackY, LayerMask obstacleMask)
-    {
-        Transform t = sphere.transform;
-        Vector3 center = t.TransformPoint(sphere.center);
-        float radius = sphere.radius * Mathf.Max(t.lossyScale.x, t.lossyScale.z);
-
-        for (int i = 0; i < 8; i++)
-        {
-            float angle = i * Mathf.PI * 2f / 8;
-            Vector3 dir = Horizontal(t.TransformDirection(
-                                new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle))));
-
-            Vector3 candidate = center + dir * (radius + totalOffset);
-            candidate = candidate = SnapToGround(
-    candidate,
-    agentHeight,
-    agentRadius,
-    sphere,
-    obstacleMask);
-
-                yield return candidate;
-        }
-    }
-
-    static IEnumerable<Vector3> GetCapsuleCorners(
-        CapsuleCollider capsule, float totalOffset,
-        float agentHeight, float agentRadius,
-        float fallbackY, LayerMask obstacleMask)
-    {
-        Transform t = capsule.transform;
-        Vector3 center = t.TransformPoint(capsule.center);
-        float radius = capsule.radius * Mathf.Max(t.lossyScale.x, t.lossyScale.z);
-
-        for (int i = 0; i < 8; i++)
-        {
-            float angle = i * Mathf.PI * 2f / 8;
-            Vector3 dir = Horizontal(t.TransformDirection(
-                                new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle))));
-
-            Vector3 candidate = center + dir * (radius + totalOffset);
-            candidate = candidate = SnapToGround(
-    candidate,
-    agentHeight,
-    agentRadius,
-    capsule,
-    obstacleMask);
-
-                yield return candidate;
-        }
-    }
-
-    // ─────────────────────────────────────────────
-    // MeshCollider — dispatcher geométrico / orgánico
-    // ─────────────────────────────────────────────
-
-    static IEnumerable<Vector3> GetMeshCorners(
-        Collider collider, float totalOffset,
-        float agentHeight, float agentRadius,
-        float fallbackY, LayerMask obstacleMask)
-    {
-        // Si no es MeshCollider (no debería llegar aquí, pero por seguridad)
-        // o no tiene mesh → orgánico
-        if (collider is not MeshCollider mc || mc.sharedMesh == null)
-        {
-            foreach (var p in GetOrganicMeshCorners(
-                collider, totalOffset, agentHeight, agentRadius, fallbackY, obstacleMask))
-                yield return p;
-            yield break;
-        }
-
-        int unique = CountUniqueXZVertices(mc.sharedMesh, mc.transform);
-
-        IEnumerable<Vector3> source = unique <= ORGANIC_VERTEX_THRESHOLD
-            ? GetGeometricMeshCorners(mc, totalOffset, agentHeight, agentRadius, fallbackY, obstacleMask)
-            : GetOrganicMeshCorners(mc, totalOffset, agentHeight, agentRadius, fallbackY, obstacleMask);
-
-        foreach (var p in source)
-            yield return p;
-    }
-
-    // MeshCollider geométrico: análisis de vértices (ProBuilder, paredes)
-    static IEnumerable<Vector3> GetGeometricMeshCorners(
-        MeshCollider mc, float totalOffset,
-        float agentHeight, float agentRadius,
-        float fallbackY, LayerMask obstacleMask)
-    {
-        Mesh mesh = mc.sharedMesh;
-        Vector3[] vertices = mesh.vertices;
-        int[] triangles = mesh.triangles;
-        Transform t = mc.transform;
-
-        // Fusionar vértices duplicados de ProBuilder por posición mundo XZ
-        var worldPosMap = new Dictionary<Vector3Int, Vector3>();
-        var vertexKeys = new Vector3Int[vertices.Length];
-
-        for (int i = 0; i < vertices.Length; i++)
-        {
-            Vector3 world = t.TransformPoint(vertices[i]);
-            Vector3Int key = QuantizeXZ(world);
-            vertexKeys[i] = key;
-            if (!worldPosMap.ContainsKey(key))
-                worldPosMap[key] = world;
-        }
-
-        // Grafo de adyacencia en planta
-        var adjacency = new Dictionary<Vector3Int, HashSet<Vector3Int>>();
-
-        for (int i = 0; i < triangles.Length; i += 3)
-        {
-            AddEdge(adjacency, vertexKeys[triangles[i]], vertexKeys[triangles[i + 1]]);
-            AddEdge(adjacency, vertexKeys[triangles[i + 1]], vertexKeys[triangles[i + 2]]);
-            AddEdge(adjacency, vertexKeys[triangles[i + 2]], vertexKeys[triangles[i]]);
-        }
-
-        var candidates = new List<Vector3>();
-        Vector3 boundsCenter = mc.bounds.center;
-
-        foreach (var pair in adjacency)
-        {
-            if (!worldPosMap.TryGetValue(pair.Key, out Vector3 worldVertex)) continue;
-            if (pair.Value.Count < 2) continue;
-
-            var neighborDirs = new List<Vector3>();
-
-            foreach (Vector3Int nk in pair.Value)
-            {
-                if (!worldPosMap.TryGetValue(nk, out Vector3 nw)) continue;
-                Vector3 dir = Horizontal(nw - worldVertex);
-                if (dir != Vector3.zero) neighborDirs.Add(dir);
-            }
-
-            if (neighborDirs.Count < 2) continue;
-
-            bool isCorner = false;
-            for (int i = 0; i < neighborDirs.Count && !isCorner; i++)
-                for (int j = i + 1; j < neighborDirs.Count && !isCorner; j++)
-                    if (Mathf.Abs(Vector3.Angle(neighborDirs[i], neighborDirs[j]) - 180f) > CORNER_ANGLE_THRESHOLD)
-                        isCorner = true;
-
-            if (!isCorner) continue;
-
-            Vector3 outward = ComputeOutward(worldVertex, neighborDirs, boundsCenter);
-            if (outward == Vector3.zero) continue;
-
-            Vector3 candidate = worldVertex + outward * totalOffset;
-            candidate = candidate = SnapToGround(
-    candidate,
-    agentHeight,
-    agentRadius,
-    mc,
-    obstacleMask); ;
-
-                candidates.Add(candidate);
-        }
-
-        candidates = Simplify(candidates, totalOffset * 1.5f);
-        foreach (var p in candidates) yield return p;
-    }
-
-    // MeshCollider orgánico: raycast radial desde el ecuador más ancho
-    static IEnumerable<Vector3> GetOrganicMeshCorners(
-        Collider collider, float totalOffset,
-        float agentHeight, float agentRadius,
-        float fallbackY, LayerMask obstacleMask)
-    {
-        // Sampleamos a la altura más ancha del obstáculo (resuelve el huevo)
-        float widestY = FindWidestY(collider);
-        Vector3 center = collider.bounds.center;
-        center.y = widestY;
-
-        var points = new List<Vector3>();
-
-        for (int i = 0; i < RADIAL_RAYS; i++)
-        {
-            float angle = i * Mathf.PI * 2f / RADIAL_RAYS;
-            Vector3 dir = Horizontal(new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)));
-            Vector3 origin = center - dir * MAX_RADIUS;
-
-            int hitCount = Physics.RaycastNonAlloc(origin, dir, _rayHits, MAX_RADIUS * 2f);
-
-            float closest = float.MaxValue;
-            RaycastHit selected = default;
-
-            for (int j = 0; j < hitCount; j++)
-            {
-                RaycastHit hit = _rayHits[j];
-                if (hit.collider != collider || hit.distance >= closest) continue;
-                closest = hit.distance;
-                selected = hit;
-            }
-
-            if (closest == float.MaxValue) continue;
-
-            Vector3 normal = Horizontal(selected.normal);
-            if (normal == Vector3.zero) continue;
-
-            Vector3 candidate = selected.point + normal * totalOffset;
-            candidate = candidate = SnapToGround(
-    candidate,
-    agentHeight,
-    agentRadius,
-    collider,
-    obstacleMask);
-
-                points.Add(candidate);
-        }
-
-        points = Simplify(points, totalOffset * 2f);
-        foreach (var p in points) yield return p;
-    }
-
-    // ─────────────────────────────────────────────
-    // Utilidades internas
-    // ─────────────────────────────────────────────
-
-    static Vector3 ComputeOutward(Vector3 vertexPos, List<Vector3> edgeDirs, Vector3 boundsCenter)
-    {
-        Vector3 accumulated = Vector3.zero;
-
-        for (int i = 0; i < edgeDirs.Count; i++)
-            for (int j = i + 1; j < edgeDirs.Count; j++)
-            {
-                Vector3 bisector = Horizontal(edgeDirs[i] + edgeDirs[j]);
-                if (bisector == Vector3.zero)
-                    bisector = new Vector3(-edgeDirs[i].z, 0f, edgeDirs[i].x);
-                accumulated += bisector;
-            }
-
-        Vector3 candidate = Horizontal(accumulated);
-        Vector3 toCenter = Horizontal(boundsCenter - vertexPos);
-
-        if (toCenter != Vector3.zero && Vector3.Dot(candidate, toCenter) > 0f)
-            candidate = -candidate;
-
-        return candidate;
-    }
-
-    static void AddEdge(Dictionary<Vector3Int, HashSet<Vector3Int>> adjacency, Vector3Int a, Vector3Int b)
-    {
-        if (a == b) return;
-        if (!adjacency.TryGetValue(a, out var sa)) adjacency[a] = sa = new();
-        if (!adjacency.TryGetValue(b, out var sb)) adjacency[b] = sb = new();
-        sa.Add(b);
-        sb.Add(a);
-    }
-
-    static int CountUniqueXZVertices(Mesh mesh, Transform t)
-    {
-        var seen = new HashSet<Vector3Int>();
-        foreach (Vector3 v in mesh.vertices)
-            seen.Add(QuantizeXZ(t.TransformPoint(v)));
-        return seen.Count;
-    }
-
-    static Vector3Int QuantizeXZ(Vector3 v) =>
-        new(Mathf.RoundToInt(v.x * 1000f), 0, Mathf.RoundToInt(v.z * 1000f));
-
-    static List<Vector3> Simplify(List<Vector3> points, float minDist)
-    {
-        var result = new List<Vector3>();
+        List<Vector3> hull = new();
 
         for (int i = 0; i < points.Count; i++)
         {
-            Vector3 cur = points[i];
-            bool skip = false;
-
-            for (int j = 0; j < result.Count; j++)
+            while (hull.Count >= 2 &&
+                Cross(
+                    hull[hull.Count - 2],
+                    hull[hull.Count - 1],
+                    points[i]) <= 0f)
             {
-                Vector3 a = result[j]; a.y = 0f;
-                Vector3 b = cur; b.y = 0f;
-                if ((a - b).sqrMagnitude <= minDist * minDist) { skip = true; break; }
+                hull.RemoveAt(hull.Count - 1);
             }
 
-            if (!skip) result.Add(cur);
+            hull.Add(points[i]);
         }
 
-        return result;
+        int lowerCount = hull.Count;
+
+        for (int i = points.Count - 2; i >= 0; i--)
+        {
+            while (hull.Count > lowerCount &&
+                Cross(
+                    hull[hull.Count - 2],
+                    hull[hull.Count - 1],
+                    points[i]) <= 0f)
+            {
+                hull.RemoveAt(hull.Count - 1);
+            }
+
+            hull.Add(points[i]);
+        }
+
+        hull.RemoveAt(hull.Count - 1);
+
+        return hull;
+    }
+
+    static float Cross(Vector3 a, Vector3 b, Vector3 c)
+    {
+        Vector3 ab = b - a;
+        Vector3 ac = c - a;
+
+        return (ab.x * ac.z) - (ab.z * ac.x);
+    }
+
+    static List<Vector3> ExtractContour(Collider collider)
+    {
+        List<Vector3> points = new();
+
+        switch (collider)
+        {
+            case BoxCollider box:
+                {
+                    Transform t = box.transform;
+
+                    Vector3 c = box.center;
+                    Vector3 h = box.size * 0.5f;
+
+                    Vector3[] corners =
+                    {
+                    new(+h.x, 0f, +h.z),
+                    new(+h.x, 0f, -h.z),
+                    new(-h.x, 0f, -h.z),
+                    new(-h.x, 0f, +h.z),
+                };
+
+                    for (int i = 0; i < corners.Length; i++)
+                        points.Add(t.TransformPoint(c + corners[i]));
+
+                    return points;
+                }
+
+            case SphereCollider sphere:
+                {
+                    Transform t = sphere.transform;
+
+                    float radius =
+                        sphere.radius *
+                        Mathf.Max(
+                            t.lossyScale.x,
+                            t.lossyScale.z);
+
+                    Vector3 center =
+                        t.TransformPoint(sphere.center);
+
+                    const int steps = 16;
+
+                    for (int i = 0; i < steps; i++)
+                    {
+                        float a =
+                            i / (float)steps * Mathf.PI * 2f;
+
+                        Vector3 dir =
+                            new(Mathf.Cos(a), 0f, Mathf.Sin(a));
+
+                        points.Add(center + dir * radius);
+                    }
+
+                    return points;
+                }
+
+            case CapsuleCollider capsule:
+                {
+                    Transform t = capsule.transform;
+
+                    float radius =
+                        capsule.radius *
+                        Mathf.Max(
+                            t.lossyScale.x,
+                            t.lossyScale.z);
+
+                    Vector3 center =
+                        t.TransformPoint(capsule.center);
+
+                    const int steps = 16;
+
+                    for (int i = 0; i < steps; i++)
+                    {
+                        float a =
+                            i / (float)steps * Mathf.PI * 2f;
+
+                        Vector3 dir =
+                            new(Mathf.Cos(a), 0f, Mathf.Sin(a));
+
+                        points.Add(center + dir * radius);
+                    }
+
+                    return points;
+                }
+
+            case MeshCollider meshCollider:
+                {
+                    if (meshCollider.sharedMesh == null)
+                        return points;
+
+                    Mesh mesh = meshCollider.sharedMesh;
+                    Transform t = meshCollider.transform;
+
+                    Vector3[] verts = mesh.vertices;
+
+                    Dictionary<Vector2Int, Vector3> unique = new();
+
+                    for (int i = 0; i < verts.Length; i++)
+                    {
+                        Vector3 world =
+                            t.TransformPoint(verts[i]);
+
+                        Vector2Int key = new(
+                            Mathf.RoundToInt(world.x / VERTEX_MERGE),
+                            Mathf.RoundToInt(world.z / VERTEX_MERGE));
+
+                        if (!unique.ContainsKey(key))
+                            unique.Add(key, world);
+                    }
+
+                    foreach (var pair in unique)
+                        points.Add(pair.Value);
+
+                    return BuildConvexHull(points);
+                }
+        }
+
+        Bounds b = collider.bounds;
+
+        points.Add(new Vector3(b.min.x, b.center.y, b.min.z));
+        points.Add(new Vector3(b.min.x, b.center.y, b.max.z));
+        points.Add(new Vector3(b.max.x, b.center.y, b.min.z));
+        points.Add(new Vector3(b.max.x, b.center.y, b.max.z));
+
+        return points;
+    }
+
+    static IEnumerable<Vector3> GenerateCornerNodes(
+        Collider collider,
+        float agentRadius,
+        float agentHeight,
+        LayerMask obstacleMask)
+    {
+        List<Vector3> contour =
+            ExtractContour(collider);
+
+        if (contour.Count < 2)
+            yield break;
+
+        contour = BuildConvexHull(contour);
+
+        float offset =
+            agentRadius + 0.05f;
+
+        for (int i = 0; i < contour.Count; i++)
+        {
+            Vector3 prev =
+                contour[(i - 1 + contour.Count) % contour.Count];
+
+            Vector3 current =
+                contour[i];
+
+            Vector3 next =
+                contour[(i + 1) % contour.Count];
+
+            Vector3 dirA =
+                Flatten(current - prev);
+
+            Vector3 dirB =
+                Flatten(next - current);
+
+            if (dirA == Vector3.zero ||
+                dirB == Vector3.zero)
+                continue;
+
+            float angle =
+                Vector3.Angle(dirA, dirB);
+
+            if (Mathf.Abs(angle - 180f) <= MIN_CORNER_ANGLE)
+                continue;
+
+            Vector3 outwardA =
+                PerpendicularRight(dirA);
+
+            Vector3 outwardB =
+                PerpendicularRight(dirB);
+
+            Vector3 outward =
+                Flatten(outwardA + outwardB);
+
+            if (outward == Vector3.zero)
+                continue;
+
+            Vector3 candidate =
+                current + outward * offset;
+
+            if (!TrySnapToGround(
+                candidate,
+                agentHeight,
+                agentRadius,
+                collider,
+                obstacleMask,
+                out candidate))
+                continue;
+
+            yield return candidate;
+        }
     }
 
     public static IEnumerable<Vector3> GetVisibleCorners(
         Vector3 origin,
         float viewRange,
         float agentRadius,
-       
         float agentHeight,
         LayerMask obstacleMask)
     {
-        int count = Physics.OverlapSphereNonAlloc(origin, viewRange, _overlapResults, obstacleMask);
-        float totalOffset = agentRadius;
-        float fallbackY = origin.y;
+        int count = Physics.OverlapSphereNonAlloc(
+            origin,
+            viewRange,
+            _overlapResults,
+            obstacleMask,
+            QueryTriggerInteraction.Ignore);
 
         for (int i = 0; i < count; i++)
         {
-            Collider collider = _overlapResults[i];
-            IEnumerable<Vector3> corners;
+            Collider collider =
+                _overlapResults[i];
 
-            switch (collider)
+            foreach (Vector3 node in GenerateCornerNodes(
+                collider,
+                agentRadius,
+                agentHeight,
+                obstacleMask))
             {
-                case BoxCollider box:
-                    corners = GetBoxCorners(box, totalOffset, agentHeight, agentRadius, fallbackY, obstacleMask);
-                    break;
-
-                case SphereCollider sphere:
-                    corners = GetSphereCorners(sphere, totalOffset, agentHeight, agentRadius, fallbackY, obstacleMask);
-                    break;
-
-                case CapsuleCollider capsule:
-                    corners = GetCapsuleCorners(capsule, totalOffset, agentHeight, agentRadius, fallbackY, obstacleMask);
-                    break;
-
-                default:
-                    corners = GetMeshCorners(collider, totalOffset, agentHeight, agentRadius, fallbackY, obstacleMask);
-                    break;
-            }
-
-            foreach (Vector3 corner in corners)
-            {
-                if (Perception.HasLineOfSight(origin, corner, obstacleMask))
-                    yield return corner;
+                if (Perception.HasLineOfSight(
+                    origin,
+                    node,
+                    obstacleMask))
+                {
+                    yield return node;
+                }
             }
         }
     }
 
-    /// <summary>
-    /// Fusiona puntos cercanos promediando su posición.
-    /// </summary>
-    public static List<Vector3> GetMergedCorners(IEnumerable<Vector3> points, float mergeDistance)
+    public static List<Vector3> GetMergedCorners(
+        IEnumerable<Vector3> points,
+        float mergeDistance)
     {
-        var merged = new List<Vector3>();
+        List<Vector3> merged = new();
+
+        float sqr =
+            mergeDistance * mergeDistance;
 
         foreach (Vector3 point in points)
         {
@@ -523,18 +433,24 @@ public static class CornerDetection
 
             for (int i = 0; i < merged.Count; i++)
             {
-                Vector3 a = merged[i]; a.y = 0f;
-                Vector3 b = point; b.y = 0f;
+                Vector3 a = merged[i];
+                Vector3 b = point;
 
-                if ((a - b).sqrMagnitude <= mergeDistance * mergeDistance)
-                {
-                    merged[i] = (merged[i] + point) * 0.5f;
-                    found = true;
-                    break;
-                }
+                a.y = 0f;
+                b.y = 0f;
+
+                if ((a - b).sqrMagnitude > sqr)
+                    continue;
+
+                merged[i] =
+                    (merged[i] + point) * 0.5f;
+
+                found = true;
+                break;
             }
 
-            if (!found) merged.Add(point);
+            if (!found)
+                merged.Add(point);
         }
 
         return merged;
