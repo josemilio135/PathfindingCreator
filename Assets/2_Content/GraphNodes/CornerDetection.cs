@@ -510,45 +510,46 @@ public static class CornerDetection
                     Vector3[] verts =
                         mesh.vertices;
 
+                    int[] tris =
+                        mesh.triangles;
+
                     Transform t =
                         meshCollider.transform;
 
-                    bool foundValidVertex = false;
-
-                    for (int i = 0; i < verts.Length; i++)
+                    for (int i = 0; i < tris.Length; i += 3)
                     {
-                        Vector3 world =
-                            t.TransformPoint(verts[i]);
+                        Vector3 a =
+                            t.TransformPoint(
+                                verts[tris[i]]);
 
-                        if (!IntersectsAgentHeight(
-                            world.y,
-                            world.y + 0.01f,
+                        Vector3 b =
+                            t.TransformPoint(
+                                verts[tris[i + 1]]);
+
+                        Vector3 c =
+                            t.TransformPoint(
+                                verts[tris[i + 2]]);
+
+                        AddEdgeIntersectionPoint(
+                            unique,
+                            a,
+                            b,
                             agentBottom,
-                            agentTop))
-                            continue;
+                            agentTop);
 
-                        world.y = agentBottom;
-
-                        AddUnique(unique, world);
-
-                        foundValidVertex = true;
-                    }
-
-                    if (!foundValidVertex)
-                    {
-                        Bounds b = meshCollider.bounds;
-
-                        if (IntersectsAgentHeight(
-                            b.min.y,
-                            b.max.y,
+                        AddEdgeIntersectionPoint(
+                            unique,
+                            b,
+                            c,
                             agentBottom,
-                            agentTop))
-                        {
-                            AddBoundsSliceCorners(
-                                unique,
-                                b,
-                                agentBottom);
-                        }
+                            agentTop);
+
+                        AddEdgeIntersectionPoint(
+                            unique,
+                            c,
+                            a,
+                            agentBottom,
+                            agentTop);
                     }
 
                     break;
@@ -580,6 +581,68 @@ public static class CornerDetection
             result.Add(pair.Value);
 
         return BuildConvexHull(result);
+    }
+    static void AddEdgeIntersectionPoint(
+    Dictionary<Vector2Int, Vector3> unique,
+    Vector3 a,
+    Vector3 b,
+    float agentBottom,
+    float agentTop)
+    {
+        bool aInside =
+            a.y >= agentBottom &&
+            a.y <= agentTop;
+
+        bool bInside =
+            b.y >= agentBottom &&
+            b.y <= agentTop;
+
+        // uno dentro = sirve
+        if (aInside)
+        {
+            a.y = agentBottom;
+            AddUnique(unique, a);
+        }
+
+        if (bInside)
+        {
+            b.y = agentBottom;
+            AddUnique(unique, b);
+        }
+
+        // ambos del mismo lado = no cruzan slice
+        if ((a.y < agentBottom && b.y < agentBottom) ||
+            (a.y > agentTop && b.y > agentTop))
+            return;
+
+        float[] slices =
+        {
+        agentBottom,
+        agentTop
+    };
+
+        for (int i = 0; i < slices.Length; i++)
+        {
+            float slice = slices[i];
+
+            float delta = b.y - a.y;
+
+            if (Mathf.Abs(delta) <= 0.0001f)
+                continue;
+
+            float t =
+                (slice - a.y) / delta;
+
+            if (t < 0f || t > 1f)
+                continue;
+
+            Vector3 point =
+                Vector3.Lerp(a, b, t);
+
+            point.y = agentBottom;
+
+            AddUnique(unique, point);
+        }
     }
     static IEnumerable<Vector3> GenerateCornerNodes(
         Collider collider,
