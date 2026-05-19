@@ -7,7 +7,6 @@ public static class NodeGraphBake
         Vector3 seedPosition,
         float viewRange,
         float agentRadius,
-        float wallOffset,
         float agentHeight,
         float mergeDistance,
         LayerMask obstacleMask)
@@ -24,7 +23,7 @@ public static class NodeGraphBake
             var visible = CornerDetection.GetMergedCorners(
                 CornerDetection.GetVisibleCorners(
                     current, viewRange,
-                    agentRadius, wallOffset, agentHeight,
+                    agentRadius, agentHeight,
                     obstacleMask),
                 mergeDistance);
 

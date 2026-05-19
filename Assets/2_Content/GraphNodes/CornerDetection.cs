@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public static class CornerDetection
 {
@@ -29,54 +30,90 @@ public static class CornerDetection
     // Snap al suelo: lanza un rayo hacia abajo desde el candidato.
     // Ignora el collider del obstáculo que lo generó para no chocar con él.
     // Si no encuentra suelo, usa la Y del generador (fallbackY).
-    static Vector3 SnapToGround(Vector3 candidate, Collider sourceCollider, float fallbackY)
+    static Vector3 SnapToGround(
+    Vector3 nodePoint,
+    float agentHeight,
+    float agentRadius,
+    Collider sourceCollider,
+    LayerMask obstacleMask)
     {
-        Vector3 origin = candidate;
-        origin.y += 2f;
+        Vector3 rayOrigin =
+            nodePoint + Vector3.up * (agentHeight + 1f);
 
-        int hits = Physics.RaycastNonAlloc(origin, Vector3.down, _rayHits, 10f);
+        int hitCount = Physics.RaycastNonAlloc(
+            rayOrigin,
+            Vector3.down,
+            _rayHits,
+            agentHeight + 10f,
+            ~0,
+            QueryTriggerInteraction.Ignore);
 
+        bool found = false;
         float bestY = float.MinValue;
-        bool didHit = false;
 
-        for (int i = 0; i < hits; i++)
+        for (int i = 0; i < hitCount; i++)
         {
             RaycastHit hit = _rayHits[i];
-            if (hit.collider == sourceCollider) continue;
-            if (hit.point.y > candidate.y + 0.1f) continue; // ignorar techos
+
+            if (hit.collider == sourceCollider)
+                continue;
+
+            if (Vector3.Dot(hit.normal, Vector3.up) < 0.6f)
+                continue;
+
+            Vector3 checkPoint = hit.point;
+
+            Vector3 bottom =
+                checkPoint + Vector3.up * agentRadius;
+
+            Vector3 top =
+                checkPoint + Vector3.up * (agentHeight - agentRadius);
+
+            int overlaps = Physics.OverlapCapsuleNonAlloc(
+                bottom,
+                top,
+                agentRadius,
+                _clearanceHits,
+                obstacleMask,
+                QueryTriggerInteraction.Ignore);
+
+            bool blocked = false;
+
+            for (int j = 0; j < overlaps; j++)
+            {
+                Collider c = _clearanceHits[j];
+
+                if (c == sourceCollider)
+                    continue;
+
+                if (c == hit.collider)
+                    continue;
+
+                blocked = true;
+                break;
+            }
+
+            if (blocked)
+                continue;
+
             if (hit.point.y > bestY)
             {
                 bestY = hit.point.y;
-                didHit = true;
+                found = true;
             }
         }
 
-        candidate.y = didHit ? bestY : fallbackY;
-        return candidate;
+        nodePoint.y = found
+            ? bestY
+            : sourceCollider.bounds.min.y;
+
+        return nodePoint;
     }
 
     // Verifica que el agente quepa en el punto (sin chocar con obstáculos).
     // Hace un OverlapCapsule con el radio mínimo del agente.
     // El collider fuente se ignora (es el obstáculo mismo, no cuenta).
-    static bool HasClearance(
-        Vector3 groundPoint,
-        float agentHeight,
-        float agentRadius,
-        Collider sourceCollider,
-        LayerMask obstacleMask)
-    {
-        float r = agentRadius;
-        Vector3 bot = groundPoint + Vector3.up * r;
-        Vector3 top = groundPoint + Vector3.up * (agentHeight - r);
-
-        int count = Physics.OverlapCapsuleNonAlloc(bot, top, r, _clearanceHits, obstacleMask);
-
-        for (int i = 0; i < count; i++)
-            if (_clearanceHits[i] != sourceCollider)
-                return false;
-
-        return true;
-    }
+    
 
     // Altura del ecuador más ancho del collider (para la roca-huevo).
     // Samplea en varias alturas y elige la que tiene mayor radio XZ real.
@@ -136,9 +173,13 @@ public static class CornerDetection
             if (dir == Vector3.zero) continue;
 
             Vector3 candidate = worldCorner + dir * totalOffset;
-            candidate = SnapToGround(candidate, box, fallbackY);
+            candidate = SnapToGround(
+     candidate,
+     agentHeight,
+     agentRadius,
+     box,
+     obstacleMask);
 
-            if (HasClearance(candidate, agentHeight, agentRadius, box, obstacleMask))
                 yield return candidate;
         }
     }
@@ -159,9 +200,13 @@ public static class CornerDetection
                                 new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle))));
 
             Vector3 candidate = center + dir * (radius + totalOffset);
-            candidate = SnapToGround(candidate, sphere, fallbackY);
+            candidate = candidate = SnapToGround(
+    candidate,
+    agentHeight,
+    agentRadius,
+    sphere,
+    obstacleMask);
 
-            if (HasClearance(candidate, agentHeight, agentRadius, sphere, obstacleMask))
                 yield return candidate;
         }
     }
@@ -182,9 +227,13 @@ public static class CornerDetection
                                 new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle))));
 
             Vector3 candidate = center + dir * (radius + totalOffset);
-            candidate = SnapToGround(candidate, capsule, fallbackY);
+            candidate = candidate = SnapToGround(
+    candidate,
+    agentHeight,
+    agentRadius,
+    capsule,
+    obstacleMask);
 
-            if (HasClearance(candidate, agentHeight, agentRadius, capsule, obstacleMask))
                 yield return candidate;
         }
     }
@@ -283,9 +332,13 @@ public static class CornerDetection
             if (outward == Vector3.zero) continue;
 
             Vector3 candidate = worldVertex + outward * totalOffset;
-            candidate = SnapToGround(candidate, mc, fallbackY);
+            candidate = candidate = SnapToGround(
+    candidate,
+    agentHeight,
+    agentRadius,
+    mc,
+    obstacleMask); ;
 
-            if (HasClearance(candidate, agentHeight, agentRadius, mc, obstacleMask))
                 candidates.Add(candidate);
         }
 
@@ -331,9 +384,13 @@ public static class CornerDetection
             if (normal == Vector3.zero) continue;
 
             Vector3 candidate = selected.point + normal * totalOffset;
-            candidate = SnapToGround(candidate, collider, fallbackY);
+            candidate = candidate = SnapToGround(
+    candidate,
+    agentHeight,
+    agentRadius,
+    collider,
+    obstacleMask);
 
-            if (HasClearance(candidate, agentHeight, agentRadius, collider, obstacleMask))
                 points.Add(candidate);
         }
 
@@ -409,29 +466,16 @@ public static class CornerDetection
         return result;
     }
 
-    // ─────────────────────────────────────────────
-    // API pública
-    // ─────────────────────────────────────────────
-
-    /// <summary>
-    /// Devuelve todos los nodos navegables visibles desde <paramref name="origin"/>.
-    /// </summary>
-    /// <param name="origin">Posición del generador.</param>
-    /// <param name="viewRange">Radio de detección de obstáculos.</param>
-    /// <param name="agentRadius">Radio del agente. Suma con wallOffset para el offset total.</param>
-    /// <param name="wallOffset">Separación extra respecto a la pared.</param>
-    /// <param name="agentHeight">Altura del agente. Valida que el espacio sea transitable.</param>
-    /// <param name="obstacleMask">Layer de obstáculos.</param>
     public static IEnumerable<Vector3> GetVisibleCorners(
         Vector3 origin,
         float viewRange,
         float agentRadius,
-        float wallOffset,
+       
         float agentHeight,
         LayerMask obstacleMask)
     {
         int count = Physics.OverlapSphereNonAlloc(origin, viewRange, _overlapResults, obstacleMask);
-        float totalOffset = agentRadius + wallOffset;
+        float totalOffset = agentRadius;
         float fallbackY = origin.y;
 
         for (int i = 0; i < count; i++)

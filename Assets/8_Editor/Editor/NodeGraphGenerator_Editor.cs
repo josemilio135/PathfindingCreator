@@ -9,6 +9,7 @@ public class NodeGraphGenerator_Editor : Editor
 
     bool _showGizmos = true;
 
+    bool _drawAgentSize = true;
     bool _drawViewRange = true;
     bool _drawDetectionCorners = true;
     bool _drawMergeNodes = true;
@@ -24,6 +25,7 @@ public class NodeGraphGenerator_Editor : Editor
         DrawViewRange();
         DrawVisibleCorners();
         DrawMergeNodes();
+        DrawAgentSize();
     }
 
     public override void OnInspectorGUI()
@@ -50,7 +52,7 @@ public class NodeGraphGenerator_Editor : Editor
 
             EditorUtility.SetDirty(_viewer);
         }
-        
+
         if (GUILayout.Button("Bake All Area Nodes"))
         {
             Undo.RecordObject(_viewer, "Bake All Area Nodes");
@@ -82,6 +84,9 @@ public class NodeGraphGenerator_Editor : Editor
         if (!_showGizmos) return;
 
         EditorGUI.indentLevel++;
+
+        _drawAgentSize =
+            EditorGUILayout.Toggle("Agent Size", _drawAgentSize);
 
         _drawViewRange =
             EditorGUILayout.Toggle("View Range", _drawViewRange);
@@ -146,6 +151,56 @@ public class NodeGraphGenerator_Editor : Editor
 
             Handles.SphereHandleCap(
                 0, point, Quaternion.identity, 0.35f, EventType.Repaint);
+        }
+    }
+    void DrawAgentSize()
+    {
+        if (!_drawAgentSize) return;
+
+        float radius = _viewer.AgentRadius;
+        float height = _viewer.AgentHeight;
+
+        foreach (Vector3 point in _viewer.GetMergedCorners())
+        {
+            Vector3 bottomCenter = point;
+            Vector3 topCenter = point + Vector3.up * height;
+
+            Handles.color = Color.green;
+
+            Handles.DrawWireDisc(
+                bottomCenter,
+                Vector3.up,
+                radius);
+
+            Handles.DrawWireDisc(
+                topCenter,
+                Vector3.up,
+                radius);
+
+            Handles.DrawLine(
+                bottomCenter + Vector3.forward * radius,
+                topCenter + Vector3.forward * radius);
+
+            Handles.DrawLine(
+                bottomCenter - Vector3.forward * radius,
+                topCenter - Vector3.forward * radius);
+
+            Handles.DrawLine(
+                bottomCenter + Vector3.right * radius,
+                topCenter + Vector3.right * radius);
+
+            Handles.DrawLine(
+                bottomCenter - Vector3.right * radius,
+                topCenter - Vector3.right * radius);
+
+            Handles.color = Color.red;
+
+            Handles.SphereHandleCap(
+                0,
+                point,
+                Quaternion.identity,
+                0.08f,
+                EventType.Repaint);
         }
     }
 }
