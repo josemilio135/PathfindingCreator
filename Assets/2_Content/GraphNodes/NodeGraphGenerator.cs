@@ -5,11 +5,8 @@ using UnityEngine;
 
 public class NodeGraphGenerator : MonoBehaviour
 {
-    // NodeGraphGenerator.cs
-
     [Header("Detection")]
     [SerializeField] LayerMask _obstacleMask;
-    [SerializeField] LayerMask _architectureMask;
     [SerializeField] LayerMask _walkableMask;
 
     [SerializeField, Min(0f)]
@@ -40,6 +37,7 @@ public class NodeGraphGenerator : MonoBehaviour
     public bool IsClean => _lastGeneratedContainer == null;
     public float AgentRadius => _agentRadius;
     public float AgentHeight => _agentHeight;
+
     Transform _lastGeneratedContainer;
 
     public void BakeOnlyThisNodes()
@@ -50,7 +48,8 @@ public class NodeGraphGenerator : MonoBehaviour
         if (_automaticUndo)
             UndoLastBake();
 
-        var points = GetMergedCorners();
+        List<Vector3> points =
+            GetMergedCorners();
 
         InstantiateNodes(points);
 
@@ -65,16 +64,16 @@ public class NodeGraphGenerator : MonoBehaviour
         if (_automaticUndo)
             UndoLastBake();
 
-        var points = NodeGraphBake.GenerateGraph(
-        transform.position,
-        _viewRange,
-        _agentRadius,
-        _agentHeight,
-        _curvedSurfacePrecision,
-        _nodeMergeDistance,
-        _obstacleMask,
-        _architectureMask,
-        _walkableMask);
+        List<Vector3> points =
+            NodeGraphBake.GenerateGraph(
+                transform.position,
+                _viewRange,
+                _agentRadius,
+                _agentHeight,
+                _curvedSurfacePrecision,
+                _nodeMergeDistance,
+                _obstacleMask,
+                _walkableMask);
 
         InstantiateNodes(points);
 
@@ -104,7 +103,6 @@ public class NodeGraphGenerator : MonoBehaviour
             _agentHeight,
             _curvedSurfacePrecision,
             _obstacleMask,
-            _architectureMask,
             _walkableMask);
     }
 
@@ -131,7 +129,8 @@ public class NodeGraphGenerator : MonoBehaviour
                 Instantiate(_prefab, container);
 #endif
 
-            node.transform.position = points[i];
+            node.transform.position =
+                points[i];
         }
     }
 

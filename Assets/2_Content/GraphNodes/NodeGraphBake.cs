@@ -13,7 +13,6 @@ public static class NodeGraphBake
         int curvedPrecision,
         float mergeDistance,
         LayerMask obstacleMask,
-        LayerMask architectureMask,
         LayerMask walkableMask)
     {
         Queue<Vector3> pending = new();
@@ -35,7 +34,6 @@ public static class NodeGraphBake
                         agentHeight,
                         curvedPrecision,
                         obstacleMask,
-                        architectureMask,
                         walkableMask),
                     mergeDistance);
 

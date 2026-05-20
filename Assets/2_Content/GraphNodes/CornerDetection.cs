@@ -6,7 +6,6 @@ using UnityEngine;
 public static class CornerDetection
 {
     static readonly Collider[] _overlapResults = new Collider[256];
-    static readonly Collider[] _architectureResults = new Collider[256];
     static readonly Collider[] _capsuleHits = new Collider[64];
     static readonly RaycastHit[] _groundHits = new RaycastHit[64];
 
@@ -30,6 +29,7 @@ public static class CornerDetection
     {
         return new Vector3(dir.z, 0f, -dir.x);
     }
+
     static float Cross2D(Vector3 a, Vector3 b, Vector3 c)
     {
         Vector3 ab = b - a;
@@ -191,6 +191,18 @@ public static class CornerDetection
 
         return obstacleTop > agentBottom &&
                obstacleBottom < agentTop;
+    }
+
+    static bool IsArchitecture(Collider collider)
+    {
+        return collider is MeshCollider mesh &&
+               !mesh.convex;
+    }
+
+    static bool IsObstacle(Collider collider)
+    {
+        return collider is not MeshCollider mesh ||
+               mesh.convex;
     }
 
     static void AddUnique(
@@ -380,16 +392,16 @@ public static class CornerDetection
 
                     Vector3[] corners =
                     {
-                        new(+h.x,+h.y,+h.z),
-                        new(+h.x,+h.y,-h.z),
-                        new(-h.x,+h.y,-h.z),
-                        new(-h.x,+h.y,+h.z),
+                    new(+h.x,+h.y,+h.z),
+                    new(+h.x,+h.y,-h.z),
+                    new(-h.x,+h.y,-h.z),
+                    new(-h.x,+h.y,+h.z),
 
-                        new(+h.x,-h.y,+h.z),
-                        new(+h.x,-h.y,-h.z),
-                        new(-h.x,-h.y,-h.z),
-                        new(-h.x,-h.y,+h.z),
-                    };
+                    new(+h.x,-h.y,+h.z),
+                    new(+h.x,-h.y,-h.z),
+                    new(-h.x,-h.y,-h.z),
+                    new(-h.x,-h.y,+h.z),
+                };
 
                     bool foundValidVertex = false;
 
@@ -645,13 +657,12 @@ public static class CornerDetection
     }
 
     static IEnumerable<Vector3> GenerateArchitectureNodes(
-      MeshCollider meshCollider,
-      float agentBottom,
-      float agentRadius,
-      float agentHeight,
-      LayerMask obstacleMask,
-      LayerMask architectureMask,
-      LayerMask walkableMask)
+        MeshCollider meshCollider,
+        float agentBottom,
+        float agentRadius,
+        float agentHeight,
+        LayerMask obstacleMask,
+        LayerMask walkableMask)
     {
         if (meshCollider.sharedMesh == null)
             yield break;
@@ -677,10 +688,6 @@ public static class CornerDetection
         float agentTop =
             agentBottom + agentHeight;
 
-        // =========================
-        // DETECTAR ESQUINAS REALES
-        // =========================
-
         for (int i = 0; i < tris.Length; i += 3)
         {
             Vector3 a =
@@ -700,19 +707,17 @@ public static class CornerDetection
                     b - a,
                     c - a).normalized;
 
-            // ignorar piso/techo
             if (Mathf.Abs(normal.y) > 0.15f)
                 continue;
 
-            // triángulo fuera del rango vertical
             if ((a.y < agentBottom && b.y < agentBottom && c.y < agentBottom) ||
                 (a.y > agentTop && b.y > agentTop && c.y > agentTop))
                 continue;
 
             Vector3[] triVerts =
             {
-            a, b, c
-        };
+                a, b, c
+            };
 
             for (int v = 0; v < 3; v++)
             {
@@ -739,11 +744,6 @@ public static class CornerDetection
             }
         }
 
-        // =========================
-        // CREAR NODOS SOLO
-        // EN ESQUINAS REALES
-        // =========================
-
         foreach (var pair in cornerMap)
         {
             List<Vector3> normals =
@@ -768,8 +768,6 @@ public static class CornerDetection
                             normals[i],
                             normals[j]);
 
-                    // si no son casi paralelas
-                    // es una esquina real
                     if (angle > 25f &&
                         angle < 175f)
                     {
@@ -800,7 +798,7 @@ public static class CornerDetection
                 agentHeight,
                 agentRadius,
                 meshCollider,
-                obstacleMask | architectureMask,
+                obstacleMask,
                 walkableMask,
                 out candidate))
                 continue;
@@ -818,6 +816,7 @@ public static class CornerDetection
         foreach (var pair in unique)
             yield return pair.Value;
     }
+
     static IEnumerable<Vector3> GenerateCornerNodes(
         Collider collider,
         float agentBottom,
@@ -899,7 +898,6 @@ public static class CornerDetection
         float agentHeight,
         int curvedPrecision,
         LayerMask obstacleMask,
-        LayerMask architectureMask,
         LayerMask walkableMask)
     {
         if (!TryGetGround(
@@ -915,14 +913,14 @@ public static class CornerDetection
         Vector3 detectionOrigin =
             groundPoint + Vector3.up * (agentHeight * 0.5f);
 
-        int obstacleCount = Physics.OverlapSphereNonAlloc(
+        int count = Physics.OverlapSphereNonAlloc(
             detectionOrigin,
             viewRange,
             _overlapResults,
             obstacleMask,
             QueryTriggerInteraction.Ignore);
 
-        for (int i = 0; i < obstacleCount; i++)
+        for (int i = 0; i < count; i++)
         {
             Collider collider =
                 _overlapResults[i];
@@ -933,61 +931,49 @@ public static class CornerDetection
                 agentHeight))
                 continue;
 
+            if (IsArchitecture(collider))
+            {
+                MeshCollider meshCollider =
+                    (MeshCollider)collider;
+
+                foreach (Vector3 node in GenerateArchitectureNodes(
+                    meshCollider,
+                    agentBottom,
+                    agentRadius,
+                    agentHeight,
+                    obstacleMask,
+                    walkableMask))
+                {
+                    Vector3 eye =
+                        groundPoint +
+                        Vector3.up * (agentHeight * 0.5f);
+
+                    Vector3 target =
+                        node +
+                        Vector3.up * (agentHeight * 0.5f);
+
+                    if (Perception.HasLineOfSight(
+                        eye,
+                        target,
+                        obstacleMask))
+                    {
+                        yield return node;
+                    }
+                }
+
+                continue;
+            }
+
+            if (!IsObstacle(collider))
+                continue;
+
             foreach (Vector3 node in GenerateCornerNodes(
                 collider,
                 agentBottom,
                 agentRadius,
                 agentHeight,
                 curvedPrecision,
-                obstacleMask | architectureMask,
-                walkableMask))
-            {
-                Vector3 eye =
-                    groundPoint +
-                    Vector3.up * (agentHeight * 0.5f);
-
-                Vector3 target =
-                    node +
-                    Vector3.up * (agentHeight * 0.5f);
-
-                if (Perception.HasLineOfSight(
-                    eye,
-                    target,
-                    obstacleMask | architectureMask))
-                {
-                    yield return node;
-                }
-            }
-        }
-
-        int architectureCount = Physics.OverlapSphereNonAlloc(
-            detectionOrigin,
-            viewRange,
-            _architectureResults,
-            architectureMask,
-            QueryTriggerInteraction.Ignore);
-
-        for (int i = 0; i < architectureCount; i++)
-        {
-            Collider collider =
-                _architectureResults[i];
-
-            if (!NeedsToBeAvoided(
-                collider,
-                agentBottom,
-                agentHeight))
-                continue;
-
-            if (collider is not MeshCollider meshCollider)
-                continue;
-
-            foreach (Vector3 node in GenerateArchitectureNodes(
-                meshCollider,
-                agentBottom,
-                agentRadius,
-                agentHeight,
                 obstacleMask,
-                architectureMask,
                 walkableMask))
             {
                 Vector3 eye =
@@ -1001,7 +987,7 @@ public static class CornerDetection
                 if (Perception.HasLineOfSight(
                     eye,
                     target,
-                    obstacleMask | architectureMask))
+                    obstacleMask))
                 {
                     yield return node;
                 }
