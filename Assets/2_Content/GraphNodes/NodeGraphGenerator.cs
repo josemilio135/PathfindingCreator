@@ -74,6 +74,10 @@ public class NodeGraphGenerator : MonoBehaviour
 
     Transform _lastGeneratedContainer;
 
+    /// <summary>
+    /// Generates nodes only from nearby colliders currently visible
+    /// inside the local detection range.
+    /// </summary>
     public void BakeOnlyThisNodes()
     {
         if (!ValidatePrefab()) return;
@@ -86,6 +90,10 @@ public class NodeGraphGenerator : MonoBehaviour
         Debug.Log($"{name}: Local node bake completed. Generated {points.Count} nodes.");
     }
 
+    /// <summary>
+    /// Generates a full node graph for the surrounding area 
+    /// using the global graph baking system.
+    /// </summary>
     public void BakeAllNodes()
     {
         if (!ValidatePrefab()) return;
@@ -107,6 +115,9 @@ public class NodeGraphGenerator : MonoBehaviour
         Debug.Log($"{name}: Full area node bake completed. Generated {points.Count} nodes.");
     }
 
+    /// <summary>
+    /// Removes the last generated node container from the scene.
+    /// </summary>
     public void UndoLastBake()
     {
         if (_lastGeneratedContainer == null)
@@ -115,8 +126,7 @@ public class NodeGraphGenerator : MonoBehaviour
             return;
         }
 
-        string containerName =
-            _lastGeneratedContainer.name;
+        string containerName = _lastGeneratedContainer.name;
 
         #if UNITY_EDITOR
         DestroyImmediate(_lastGeneratedContainer.gameObject);
@@ -127,6 +137,32 @@ public class NodeGraphGenerator : MonoBehaviour
         _lastGeneratedContainer = null;
 
         Debug.Log($"{name}: Removed baked node container '{containerName}'.");
+    }
+
+    /// <summary>
+    /// Returns all detected visible corner positions before merge processing.
+    /// Mainly used for editor visualization and debugging.
+    /// </summary>
+    public IEnumerable<Vector3> GetVisibleCorners()
+    {
+        return CornerDetection.GetVisibleCorners(
+            transform.position,
+            _viewRange,
+            _agentRadius,
+            _agentHeight,
+            _roundColliderPrecision,
+            _obstacleMask,
+            _walkableMask);
+    }
+    /// <summary>
+    /// Returns merged corner positions after distance-based cleanup.
+    /// Used as the final waypoint positions before node instantiation.
+    /// </summary>
+    public List<Vector3> GetMergedCorners()
+    {
+        return CornerDetection.GetMergedCorners(
+            GetVisibleCorners(),
+            _nodeMergeDistance);
     }
     void InstantiateNodes(List<Vector3> points)
     {
@@ -163,25 +199,6 @@ public class NodeGraphGenerator : MonoBehaviour
         Debug.LogWarning($"{name}: Cannot bake nodes because no Node Prefab is assigned.");
 
         return false;
-    }
-
-    public IEnumerable<Vector3> GetVisibleCorners()
-    {
-        return CornerDetection.GetVisibleCorners(
-            transform.position,
-            _viewRange,
-            _agentRadius,
-            _agentHeight,
-            _roundColliderPrecision,
-            _obstacleMask,
-            _walkableMask);
-    }
-
-    public List<Vector3> GetMergedCorners()
-    {
-        return CornerDetection.GetMergedCorners(
-            GetVisibleCorners(),
-            _nodeMergeDistance);
     }
 
 }
