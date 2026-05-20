@@ -1,68 +1,73 @@
-﻿// NodeGraphGenerator.cs
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public class NodeGraphGenerator : MonoBehaviour
 {
-    [Header("Detection")]
+    [Tooltip("Layers used to detect the outline of these colliders and generate traversable nodes")]
     [SerializeField] LayerMask _obstacleMask;
+
+    [Tooltip("Layers considered valid walkable ground surfaces used to snap nodes to the floor.")]
     [SerializeField] LayerMask _walkableMask;
 
-    [SerializeField, Min(0f)]
-    float _viewRange = 15f;
+    [Tooltip("Allows baking without requiring walkable floor layers.")]
+    [SerializeField] bool _ignoreWalkableFloor = false;
 
-    [Header("Agent")]
-    [SerializeField, Min(0.1f)]
-    float _agentHeight = 2f;
+    [Tooltip("Detection radius used to search for nearby colliders and evaluate their corners.")]
+    [SerializeField, Min(0f)] float _viewRange = 15f;
 
-    [SerializeField, Min(0.05f)]
-    float _agentRadius = 0.4f;
+    [Tooltip("Vertical space required for the agent to fit and move.")]
+    [SerializeField, Min(0.1f)] float _agentHeight = 2f;
 
-    [Header("Curved Precision")]
-    [SerializeField, Range(4, 32)]
-    int _curvedSurfacePrecision = 8;
+    [Tooltip("Horizontal collision size used for clearance checks and corner offset.")]
+    [SerializeField, Min(0.05f)] float _agentRadius = 0.4f;
 
-    [Header("Nodes")]
-    [SerializeField] GameObject _prefab;
+    [Tooltip("Prefab instantiated for every generated node.")]
+    [SerializeField] GameObject _nodePrefab;
 
-    [SerializeField, Min(0.01f)]
-    float _nodeMergeDistance = 1f;
+    [Tooltip("Amount of points generated around SphereColliders and CapsuleColliders.")]
+    [SerializeField, Range(4, 32)] int _roundColliderPrecision = 8;
 
-    [SerializeField]
-    bool _automaticUndo = false;
+    [Tooltip("Distance required before nearby generated nodes merge together.")]
+    [SerializeField, Min(0.01f)] float _nodeMergeDistance = 1f;
+
+    [Tooltip("Additional distance applied when pushing nodes away from corners.")]
+    [SerializeField, Min(0.001f)] float _extraOffset = 0.05f;
+
+    [Tooltip("Minimum angle required for a corner to be considered valid.")]
+    [SerializeField, Range(0f, 180f)] float _minCornerAngle = 10f;
+
+    [Tooltip("Automatically removes the previous baked node container before baking again.")]
+    [SerializeField] bool _automaticUndo = false;
 
     public float ViewRange => _viewRange;
     public float NodeMergeDistance => _nodeMergeDistance;
     public bool IsClean => _lastGeneratedContainer == null;
     public float AgentRadius => _agentRadius;
     public float AgentHeight => _agentHeight;
+    public bool IgnoreWalkableFloor => _ignoreWalkableFloor;
+    public bool HasObstacleMask => _obstacleMask.value != 0;
+    public bool HasWalkableMask => _walkableMask.value != 0;
+    public bool CanBake =>
+        HasObstacleMask && (_ignoreWalkableFloor || HasWalkableMask);
 
     Transform _lastGeneratedContainer;
 
     public void BakeOnlyThisNodes()
     {
-        if (!ValidatePrefab())
-            return;
+        if (!ValidatePrefab()) return;
+        if (_automaticUndo) UndoLastBake();
 
-        if (_automaticUndo)
-            UndoLastBake();
-
-        List<Vector3> points =
-            GetMergedCorners();
+        List<Vector3> points = GetMergedCorners();
 
         InstantiateNodes(points);
 
-        Debug.Log($"Bake local. {points.Count} nodos.");
+        Debug.Log($"{name}: Local node bake completed. Generated {points.Count} nodes.");
     }
 
     public void BakeAllNodes()
     {
-        if (!ValidatePrefab())
-            return;
-
-        if (_automaticUndo)
-            UndoLastBake();
+        if (!ValidatePrefab()) return;
+        if (_automaticUndo) UndoLastBake();
 
         List<Vector3> points =
             NodeGraphBake.GenerateGraph(
@@ -70,28 +75,39 @@ public class NodeGraphGenerator : MonoBehaviour
                 _viewRange,
                 _agentRadius,
                 _agentHeight,
-                _curvedSurfacePrecision,
+                _roundColliderPrecision,
                 _nodeMergeDistance,
                 _obstacleMask,
                 _walkableMask);
 
         InstantiateNodes(points);
 
-        Debug.Log($"Bake completo. {points.Count} nodos.");
+        Debug.Log($"{name}: Full area node bake completed. Generated {points.Count} nodes.");
     }
 
     public void UndoLastBake()
     {
         if (_lastGeneratedContainer == null)
+        {
+            Debug.Log(
+                $"{name}: No baked node container to remove.");
+
             return;
+        }
+
+        string containerName =
+            _lastGeneratedContainer.name;
 
 #if UNITY_EDITOR
         DestroyImmediate(_lastGeneratedContainer.gameObject);
 #else
-        Destroy(_lastGeneratedContainer.gameObject);
+    Destroy(_lastGeneratedContainer.gameObject);
 #endif
 
         _lastGeneratedContainer = null;
+
+        Debug.Log(
+            $"{name}: Removed baked node container '{containerName}'.");
     }
 
     public IEnumerable<Vector3> GetVisibleCorners()
@@ -101,7 +117,7 @@ public class NodeGraphGenerator : MonoBehaviour
             _viewRange,
             _agentRadius,
             _agentHeight,
-            _curvedSurfacePrecision,
+            _roundColliderPrecision,
             _obstacleMask,
             _walkableMask);
     }
@@ -123,10 +139,10 @@ public class NodeGraphGenerator : MonoBehaviour
 #if UNITY_EDITOR
             GameObject node =
                 (GameObject)UnityEditor.PrefabUtility
-                .InstantiatePrefab(_prefab, container);
+                .InstantiatePrefab(_nodePrefab, container);
 #else
             GameObject node =
-                Instantiate(_prefab, container);
+                Instantiate(_nodePrefab, container);
 #endif
 
             node.transform.position =
@@ -147,10 +163,11 @@ public class NodeGraphGenerator : MonoBehaviour
 
     bool ValidatePrefab()
     {
-        if (_prefab != null)
+        if (_nodePrefab != null)
             return true;
 
-        Debug.LogWarning("No prefab assigned.");
+        Debug.LogWarning(
+            $"{name}: Cannot bake nodes because no Node Prefab is assigned.");
 
         return false;
     }
