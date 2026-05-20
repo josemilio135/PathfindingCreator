@@ -1,6 +1,26 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Editor-driven node baking tool used to generate waypoint graphs for pathfinding.
+/// 
+/// The generator scans nearby colliders inside the detection range, analyzes their
+/// visible corners and surface outlines, then creates traversable node positions
+/// around them. Generated points are merged together to avoid duplicate or overly
+/// dense nodes before instantiating them as waypoint prefabs inside a container.
+/// 
+/// Supports visual debugging directly in the Unity Scene View, including:
+/// - Detection range visualization
+/// - Visible corner preview
+/// - Node merge radius preview
+/// - Agent size and clearance preview
+/// 
+/// Convex MeshColliders are treated as regular obstacles. Examples: rocks, debris, etc.
+/// Non-convex MeshColliders are treated as architectural surfaces for more detailed
+/// corner extraction. Examples: interior-houses, pro-builder, hallways, etc
+/// 
+/// Designed to work entirely from the Unity Inspector without entering Play Mode.
+/// </summary>
 public class NodeGraphGenerator : MonoBehaviour
 {
     [Tooltip("Layers used to detect the outline of these colliders and generate traversable nodes")]
@@ -39,6 +59,7 @@ public class NodeGraphGenerator : MonoBehaviour
     [Tooltip("Automatically removes the previous baked node container before baking again.")]
     [SerializeField] bool _automaticUndo = false;
 
+    #region Editor Info
     public float ViewRange => _viewRange;
     public float NodeMergeDistance => _nodeMergeDistance;
     public bool IsClean => _lastGeneratedContainer == null;
@@ -47,8 +68,9 @@ public class NodeGraphGenerator : MonoBehaviour
     public bool IgnoreWalkableFloor => _ignoreWalkableFloor;
     public bool HasObstacleMask => _obstacleMask.value != 0;
     public bool HasWalkableMask => _walkableMask.value != 0;
-    public bool CanBake =>
-        HasObstacleMask && (_ignoreWalkableFloor || HasWalkableMask);
+    public bool CanBake => HasObstacleMask && (_ignoreWalkableFloor || HasWalkableMask);
+
+    #endregion
 
     Transform _lastGeneratedContainer;
 
@@ -89,25 +111,58 @@ public class NodeGraphGenerator : MonoBehaviour
     {
         if (_lastGeneratedContainer == null)
         {
-            Debug.Log(
-                $"{name}: No baked node container to remove.");
-
+            Debug.Log($"{name}: No baked node container to remove.");
             return;
         }
 
         string containerName =
             _lastGeneratedContainer.name;
 
-#if UNITY_EDITOR
+        #if UNITY_EDITOR
         DestroyImmediate(_lastGeneratedContainer.gameObject);
-#else
-    Destroy(_lastGeneratedContainer.gameObject);
-#endif
+        #else
+        Destroy(_lastGeneratedContainer.gameObject);
+        #endif
 
         _lastGeneratedContainer = null;
 
-        Debug.Log(
-            $"{name}: Removed baked node container '{containerName}'.");
+        Debug.Log($"{name}: Removed baked node container '{containerName}'.");
+    }
+    void InstantiateNodes(List<Vector3> points)
+    {
+        Transform container =
+            CreateNodeContainer();
+
+        for (int i = 0; i < points.Count; i++)
+        {
+        #if UNITY_EDITOR
+            GameObject node =
+                (GameObject)UnityEditor.PrefabUtility
+                .InstantiatePrefab(_nodePrefab, container);
+        #else
+            GameObject node =
+                Instantiate(_nodePrefab, container);
+        #endif
+
+            node.transform.position =
+                points[i];
+        }
+    }
+
+    Transform CreateNodeContainer()
+    {
+        GameObject go = new($"{gameObject.name}_PathNodes");
+        _lastGeneratedContainer = go.transform;
+
+        return _lastGeneratedContainer;
+    }
+
+    bool ValidatePrefab()
+    {
+        if (_nodePrefab != null) return true;
+        Debug.LogWarning($"{name}: Cannot bake nodes because no Node Prefab is assigned.");
+
+        return false;
     }
 
     public IEnumerable<Vector3> GetVisibleCorners()
@@ -129,46 +184,4 @@ public class NodeGraphGenerator : MonoBehaviour
             _nodeMergeDistance);
     }
 
-    void InstantiateNodes(List<Vector3> points)
-    {
-        Transform container =
-            CreateNodeContainer();
-
-        for (int i = 0; i < points.Count; i++)
-        {
-#if UNITY_EDITOR
-            GameObject node =
-                (GameObject)UnityEditor.PrefabUtility
-                .InstantiatePrefab(_nodePrefab, container);
-#else
-            GameObject node =
-                Instantiate(_nodePrefab, container);
-#endif
-
-            node.transform.position =
-                points[i];
-        }
-    }
-
-    Transform CreateNodeContainer()
-    {
-        GameObject go =
-            new($"{gameObject.name}_PathNodes");
-
-        _lastGeneratedContainer =
-            go.transform;
-
-        return _lastGeneratedContainer;
-    }
-
-    bool ValidatePrefab()
-    {
-        if (_nodePrefab != null)
-            return true;
-
-        Debug.LogWarning(
-            $"{name}: Cannot bake nodes because no Node Prefab is assigned.");
-
-        return false;
-    }
 }
