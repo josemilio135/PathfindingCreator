@@ -17,10 +17,13 @@ public static class AgentPhysics
     {
         groundPoint = default;
 
+       // bool 
         if (!Physics.Raycast(
             origin, Vector3.down, out RaycastHit hit,
             maxDistance, walkableMask, QueryTriggerInteraction.Ignore))
+        {
             return false;
+        }
 
         if (!IsWalkableSurface(hit.normal))
             return false;

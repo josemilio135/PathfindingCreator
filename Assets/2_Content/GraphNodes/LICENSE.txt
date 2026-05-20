@@ -1,0 +1,21 @@
+Copyright (c) 2026 Emilio Albán
+Pathfinding and Node Graph Automatic Generator
+ 
+All rights reserved.
+ 
+You may use this software in personal, educational, and commercial projects
+(including distributed games and applications) only if you have received
+explicit permission from the author.
+ 
+You may NOT, under any circumstances:
+- Sell, sublicense, or redistribute this software as a standalone product,
+  tool, plugin, or package — original or modified — with or without charge.
+- Publish or upload this software to any marketplace, asset store, or public
+  repository without written authorization from the author.
+- Remove or alter the copyright notice present in the source files.
+- Claim authorship of this software or any substantial part of it.
+ 
+Credit is not required but is genuinely appreciated.
+ 
+THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHOR
+IS NOT LIABLE FOR ANY DAMAGES OR FAILURES ARISING FROM ITS USE.
