@@ -2,13 +2,19 @@
 using UnityEngine;
 
 /// <summary>
-/// Flood-fills a navigable area starting from a seed position,
-/// expanding the graph by discovering nodes visible from each visited point.
+/// Generates a navigable node graph using Breadth-First Search (BFS).
+/// Starting from a seed position, the algorithm samples visible nodes nearby,
+/// adds them to the graph, then expands outward from each new node, until no new nodes are discovered.
 /// </summary>
 public static class NodeGraphBake
 {
+    /// <summary>
+    /// Iterates outward from <paramref name="seedPosition"/>, collecting and
+    /// merging visible nodes at each step until the entire reachable area is covered.
+    /// Returns the full list of unique node positions that form the graph.
+    /// </summary>
     public static List<Vector3> GenerateGraph(
-        Vector3 seedPosition,
+    Vector3 seedPosition,
         float viewRange,
         float agentRadius,
         float agentHeight,
@@ -18,43 +24,57 @@ public static class NodeGraphBake
         LayerMask walkableMask)
     {
         Queue<Vector3> frontier = new();
-        List<Vector3> graph = new();
+        List<Vector3> nodesGraph = new();
 
         frontier.Enqueue(seedPosition);
 
         while (frontier.Count > 0)
         {
-            Vector3 current = frontier.Dequeue();
+            Vector3 currentNode = frontier.Dequeue();
 
-            List<Vector3> visible = NodeSampler.MergeNearbyNodes(
-                NodeSampler.GetVisibleNodes(
-                    current, viewRange,
-                    agentRadius, agentHeight,
-                    curvedPrecision,
-                    obstacleMask, walkableMask),
-                mergeDistance);
+            IEnumerable<Vector3> visibleNodes =
+                 NodeSampler.GetVisibleNodes(
+                     currentNode, viewRange,
+                     agentRadius, agentHeight,
+                     curvedPrecision,
+                     obstacleMask, walkableMask);
 
-            foreach (Vector3 node in visible)
+            List<Vector3> mergedNodes =
+                NodeSampler.MergeNearbyNodes(visibleNodes, mergeDistance);
+
+            foreach (Vector3 node in mergedNodes)
             {
-                if (AlreadyInGraph(graph, node, mergeDistance)) continue;
-                graph.Add(node);
+                if (AlreadyInGraph(nodesGraph, node, mergeDistance)) continue;
+                nodesGraph.Add(node);
                 frontier.Enqueue(node);
             }
         }
 
-        return graph;
+        return nodesGraph;
     }
-
+    /// <summary>
+    /// Returns true if a node close enough to <paramref name="node"/> already
+    /// exists in the graph. 
+    /// Proximity is evaluated on the horizontal plane only (Y is ignored)
+    /// So nodes on different floors at the same XZ position are still treated 
+    /// as duplicates and wont be explored twice.
+    /// </summary>
     static bool AlreadyInGraph(List<Vector3> graph, Vector3 node, float mergeDistance)
     {
+        if (mergeDistance <= 0f)
+        {
+            Debug.LogError("NodeGraphBake: mergeDistance must be greater than zero.");
+            return false;
+        }
+
         float sqr = mergeDistance * mergeDistance;
 
         foreach (Vector3 existing in graph)
         {
-            Vector3 a = existing; a.y = 0f;
-            Vector3 b = node; b.y = 0f;
+            Vector3 flatExisting = existing; flatExisting.y = 0f;
+            Vector3 flatNode = node; flatNode.y = 0f;
 
-            if ((a - b).sqrMagnitude <= sqr) return true;
+            if ((flatExisting - flatNode).sqrMagnitude <= sqr) return true;
         }
 
         return false;
