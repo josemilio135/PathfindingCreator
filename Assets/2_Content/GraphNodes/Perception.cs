@@ -48,6 +48,33 @@ public static class Perception
 
     #endregion
 
+    #region LOD Sphere
+    public static bool HasLineOfSight_Sphere(
+        Vector3 from, Vector3 to,
+        float radius, LayerMask obstacleMask,
+        out RaycastHit hit)
+    {
+        Vector3 direction = to - from;
+
+        float distance = direction.magnitude;
+
+        // Same position.
+        if (distance <= 0f)
+        {
+            hit = default;
+            return true;
+        }
+        if (radius <= 0f) return HasLineOfSight(from, to, obstacleMask, out hit);
+
+        direction /= distance;
+
+        bool blocked = Physics.SphereCast(
+            from, radius, direction, out hit, distance, obstacleMask);
+
+        return !blocked;
+    }
+    #endregion
+
     #region Range
 
     /// <summary>
