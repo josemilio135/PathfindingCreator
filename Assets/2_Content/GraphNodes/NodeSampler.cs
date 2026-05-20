@@ -41,15 +41,22 @@ public static class NodeSampler
             if (!AgentPhysics.ColliderBlocksAgent(obstacle, agentBottom, agentHeight))
                 continue;
 
-            IEnumerable<Vector3> candidates = ColliderContourExtractor.IsArchitectureSurface(obstacle)
-                ? WaypointSampler.SampleArchitectureCorners(
-                    (MeshCollider)obstacle,
+            IEnumerable<Vector3> candidates;
+
+            if (obstacle is MeshCollider { convex: false } meshCollider)
+            {
+                candidates = WaypointSampler.SampleArchitectureCorners(
+                    meshCollider,
                     agentBottom, agentRadius, agentHeight,
-                    obstacleMask, walkableMask)
-                : WaypointSampler.SampleObstacleCorners(
+                    obstacleMask, walkableMask);
+            }
+            else
+            {
+                candidates = WaypointSampler.SampleObstacleCorners(
                     obstacle,
                     agentBottom, agentRadius, agentHeight,
                     curvedPrecision, obstacleMask, walkableMask);
+            }
 
             foreach (Vector3 node in candidates)
             {
