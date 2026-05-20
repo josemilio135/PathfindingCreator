@@ -6136,46 +6136,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: GRAPH_CREATOR (1)
       objectReference: {fileID: 0}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _nodePrefab
-      value: 
-      objectReference: {fileID: 2866645223494605068, guid: 7ed6d3191ecc0b549b201fb4a17650a5, type: 3}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _ignoreFloor
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _automaticUndo
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _minCornerAngle
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _nodeMergeDistance
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _ignoreWalkableFloor
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _obstacleMask.m_Bits
-      value: 128
-      objectReference: {fileID: 0}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _walkableMask.m_Bits
-      value: 256
-      objectReference: {fileID: 0}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _roundColliderPrecision
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: 1486474246303568776, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
-      propertyPath: _architectureMask.m_Bits
-      value: 512
-      objectReference: {fileID: 0}
     - target: {fileID: 2958987262488351647, guid: 2b9e8f64a8f2dff43b01a8a26132c706, type: 3}
       propertyPath: m_LocalPosition.x
       value: 24.85

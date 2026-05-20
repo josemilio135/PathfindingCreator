@@ -51,12 +51,15 @@ MonoBehaviour:
   _walkableMask:
     serializedVersion: 2
     m_Bits: 256
+  _ignoreWalkableFloor: 0
   _viewRange: 7
   _agentHeight: 2
   _agentRadius: 0.5
-  _curvedSurfacePrecision: 6
-  _prefab: {fileID: 2866645223494605068, guid: 7ed6d3191ecc0b549b201fb4a17650a5, type: 3}
-  _nodeMergeDistance: 0.3
+  _nodePrefab: {fileID: 2866645223494605068, guid: 7ed6d3191ecc0b549b201fb4a17650a5, type: 3}
+  _roundColliderPrecision: 6
+  _nodeMergeDistance: 0.5
+  _extraOffset: 0.05
+  _minCornerAngle: 4
   _automaticUndo: 1
 --- !u!1 &2374281481057648903
 GameObject:
