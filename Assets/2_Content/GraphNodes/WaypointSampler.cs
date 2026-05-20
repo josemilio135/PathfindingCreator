@@ -1,27 +1,37 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+
 /// <summary>
-/// Generates candidate waypoint positions around obstacle colliders,
-/// both for regular convex obstacles and non-convex architecture surfaces.
+/// Generates navigable waypoint candidates around collider geometry
+/// by detecting outward-facing corners and valid traversal positions.
+/// 
+/// Supports both convex obstacle contours and concave mesh architecture.
 /// </summary>
 public static class WaypointSampler
 {
+    //Merge nearby vertices, avoid floating duplicates
     const float VERTEX_SNAP = 0.025f;
+
+    //Minimum angle between normals to consider that a real architectural corner exists.
     const float CORNER_ANGLE = 25f;
+
+    //Tolerance margin to ignore nearly straight segments of the contour.
     const float STRAIGHT_ANGLE = 10f;
+
+    //Separación extra agregada al radio del agente.
     const float EXTRA_OFFSET = 0.05f;
 
     /// <summary>
-    /// Samples waypoints around a convex obstacle's outline corners.
+    /// Generates navigable waypoint candidates from the outer corners
+    /// of a convex obstacle contour.
+    /// Each candidate is offset away from the obstacle surface
+    /// using the averaged outward corner direction.
     /// </summary>
     public static IEnumerable<Vector3> SampleObstacleCorners(
         Collider obstacle,
-        float agentBottom,
-        float agentRadius,
-        float agentHeight,
+        float agentBottom, float agentRadius, float agentHeight,
         int curvedPrecision,
-        LayerMask obstacleMask,
-        LayerMask walkableMask)
+        LayerMask obstacleMask, LayerMask walkableMask)
     {
         List<Vector3> contour = ColliderContourExtractor.Extract(
             obstacle, agentBottom, agentHeight, curvedPrecision);
@@ -32,23 +42,27 @@ public static class WaypointSampler
 
         for (int i = 0; i < contour.Count; i++)
         {
-            Vector3 prev = contour[(i - 1 + contour.Count) % contour.Count];
-            Vector3 current = contour[i];
-            Vector3 next = contour[(i + 1) % contour.Count];
+            //Three point to create a corner
+            Vector3 prevVert = contour[(i - 1 + contour.Count) % contour.Count];
+            Vector3 currentVert = contour[i];
+            Vector3 nextVert = contour[(i + 1) % contour.Count];
 
-            Vector3 dirIn = FlatNormalized(current - prev);
-            Vector3 dirOut = FlatNormalized(next - current);
+            Vector3 dirIn = FlatNormalized(currentVert - prevVert);
+            Vector3 dirOut = FlatNormalized(nextVert - currentVert);
 
             if (dirIn == Vector3.zero || dirOut == Vector3.zero) continue;
 
             float angle = Vector3.Angle(dirIn, dirOut);
             if (Mathf.Abs(angle - 180f) <= STRAIGHT_ANGLE) continue;
 
+            //Calculate direction out of the corner.
             Vector3 outward = FlatNormalized(Perp(dirIn) + Perp(dirOut));
             if (outward == Vector3.zero) continue;
 
-            Vector3 candidate = current + outward * offset;
+            //Set offset
+            Vector3 candidate = currentVert + outward * offset;
 
+            //Set on ground
             if (!AgentPhysics.TrySnapToGround(
                 candidate, agentHeight, agentRadius,
                 obstacle, obstacleMask, walkableMask,
@@ -65,11 +79,8 @@ public static class WaypointSampler
     /// </summary>
     public static IEnumerable<Vector3> SampleArchitectureCorners(
         MeshCollider architecture,
-        float agentBottom,
-        float agentRadius,
-        float agentHeight,
-        LayerMask obstacleMask,
-        LayerMask walkableMask)
+        float agentBottom, float agentRadius, float agentHeight,
+        LayerMask obstacleMask, LayerMask walkableMask)
     {
         if (architecture.sharedMesh == null) yield break;
 
@@ -122,14 +133,14 @@ public static class WaypointSampler
                 accepted.Add(finalKey, candidate);
         }
 
-        foreach (var pair in accepted)
-            yield return pair.Value;
+        foreach (var pair in accepted) yield return pair.Value;
     }
 
-    // -------------------------------------------------------------------------
-    // Corner classification
-    // -------------------------------------------------------------------------
-
+    /// <summary>
+    /// Determines whether a mesh vertex represents a real architectural corner
+    /// by comparing the angular difference between connected wall normals.
+    /// Also outputs the averaged outward-facing corner direction.
+    /// </summary>
     static bool IsCornerVertex(List<Vector3> normals, out Vector3 averageNormal)
     {
         averageNormal = Vector3.zero;
@@ -142,8 +153,7 @@ public static class WaypointSampler
             for (int j = i + 1; j < normals.Count; j++)
             {
                 float angle = Vector3.Angle(normals[i], normals[j]);
-                if (angle > CORNER_ANGLE && angle < 175f)
-                    isCorner = true;
+                if (angle > CORNER_ANGLE && angle < 175f) isCorner = true;
             }
         }
 
@@ -151,10 +161,13 @@ public static class WaypointSampler
         return isCorner;
     }
 
+    /// <summary>
+    /// Groups wall normals by snapped vertex position so nearby mesh vertices
+    /// contribute to the same architectural corner analysis.
+    /// </summary>
     static void AccumulateNormal(
         Dictionary<Vector2Int, List<Vector3>> map,
-        Vector3 vertex,
-        Vector3 normal)
+        Vector3 vertex, Vector3 normal)
     {
         Vector2Int key = SnapKey(vertex);
 
@@ -167,14 +180,20 @@ public static class WaypointSampler
         list.Add(normal);
     }
 
-    // -------------------------------------------------------------------------
-    // Math helpers
-    // -------------------------------------------------------------------------
-
+    /// <summary>
+    /// Converts a world position into a discrete XZ grid coordinate
+    /// used for spatial deduplication and stable hashing.
+    /// </summary>
     static Vector2Int SnapKey(Vector3 v)
-        => new(Mathf.RoundToInt(v.x / VERTEX_SNAP),
-               Mathf.RoundToInt(v.z / VERTEX_SNAP));
+    {
+        return new(Mathf.RoundToInt(v.x / VERTEX_SNAP),
+                   Mathf.RoundToInt(v.z / VERTEX_SNAP));
+    }
 
+    /// <summary>
+    /// Projects a vector onto the horizontal plane and normalizes it.
+    /// Returns Vector3.zero if the horizontal magnitude is negligible.
+    /// </summary>
     static Vector3 FlatNormalized(Vector3 v)
     {
         v.y = 0f;
@@ -182,5 +201,8 @@ public static class WaypointSampler
         return mag > 0.0001f ? v / mag : Vector3.zero;
     }
 
+    /// <summary>
+    /// Returns the horizontal perpendicular direction of a vector on the XZ plane.
+    /// </summary>
     static Vector3 Perp(Vector3 dir) => new(dir.z, 0f, -dir.x);
 }
