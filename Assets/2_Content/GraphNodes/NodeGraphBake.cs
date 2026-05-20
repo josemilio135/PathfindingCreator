@@ -1,8 +1,10 @@
-﻿// NodeGraphBake.cs
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Flood-fills a navigable area starting from a seed position,
+/// expanding the graph by discovering nodes visible from each visited point.
+/// </summary>
 public static class NodeGraphBake
 {
     public static List<Vector3> GenerateGraph(
@@ -15,66 +17,44 @@ public static class NodeGraphBake
         LayerMask obstacleMask,
         LayerMask walkableMask)
     {
-        Queue<Vector3> pending = new();
+        Queue<Vector3> frontier = new();
         List<Vector3> graph = new();
 
-        pending.Enqueue(seedPosition);
+        frontier.Enqueue(seedPosition);
 
-        while (pending.Count > 0)
+        while (frontier.Count > 0)
         {
-            Vector3 current =
-                pending.Dequeue();
+            Vector3 current = frontier.Dequeue();
 
-            List<Vector3> visible =
-                CornerDetection.GetMergedCorners(
-                    CornerDetection.GetVisibleCorners(
-                        current,
-                        viewRange,
-                        agentRadius,
-                        agentHeight,
-                        curvedPrecision,
-                        obstacleMask,
-                        walkableMask),
-                    mergeDistance);
+            List<Vector3> visible = NodeSampler.MergeNearbyNodes(
+                NodeSampler.GetVisibleNodes(
+                    current, viewRange,
+                    agentRadius, agentHeight,
+                    curvedPrecision,
+                    obstacleMask, walkableMask),
+                mergeDistance);
 
-            for (int i = 0; i < visible.Count; i++)
+            foreach (Vector3 node in visible)
             {
-                Vector3 node =
-                    visible[i];
-
-                if (ContainsPoint(
-                    graph,
-                    node,
-                    mergeDistance))
-                    continue;
-
+                if (AlreadyInGraph(graph, node, mergeDistance)) continue;
                 graph.Add(node);
-
-                pending.Enqueue(node);
+                frontier.Enqueue(node);
             }
         }
 
         return graph;
     }
 
-    static bool ContainsPoint(
-        List<Vector3> points,
-        Vector3 target,
-        float range)
+    static bool AlreadyInGraph(List<Vector3> graph, Vector3 node, float mergeDistance)
     {
-        float sqr =
-            range * range;
+        float sqr = mergeDistance * mergeDistance;
 
-        for (int i = 0; i < points.Count; i++)
+        foreach (Vector3 existing in graph)
         {
-            Vector3 a = points[i];
-            Vector3 b = target;
+            Vector3 a = existing; a.y = 0f;
+            Vector3 b = node; b.y = 0f;
 
-            a.y = 0f;
-            b.y = 0f;
-
-            if ((a - b).sqrMagnitude <= sqr)
-                return true;
+            if ((a - b).sqrMagnitude <= sqr) return true;
         }
 
         return false;

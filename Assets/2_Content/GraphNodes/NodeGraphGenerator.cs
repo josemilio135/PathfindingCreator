@@ -59,7 +59,8 @@ public class NodeGraphGenerator : MonoBehaviour
     [Tooltip("Automatically removes the previous baked node container before baking again.")]
     [SerializeField] bool _automaticUndo = false;
 
-    #region Editor Info
+    #region Editor Info 
+    //Read-only values exposed for the custom editor and debug visualization.
     public float ViewRange => _viewRange;
     public float NodeMergeDistance => _nodeMergeDistance;
     public bool IsClean => _lastGeneratedContainer == null;
@@ -83,11 +84,11 @@ public class NodeGraphGenerator : MonoBehaviour
         if (!ValidatePrefab()) return;
         if (_automaticUndo) UndoLastBake();
 
-        List<Vector3> points = GetMergedCorners();
+        List<Vector3> nodes = GetMergedCorners();
 
-        InstantiateNodes(points);
+        InstantiateNodes(nodes);
 
-        Debug.Log($"{name}: Local node bake completed. Generated {points.Count} nodes.");
+        Debug.Log($"{name}: Local node bake completed. Generated {nodes.Count} nodes.");
     }
 
     /// <summary>
@@ -99,20 +100,16 @@ public class NodeGraphGenerator : MonoBehaviour
         if (!ValidatePrefab()) return;
         if (_automaticUndo) UndoLastBake();
 
-        List<Vector3> points =
-            NodeGraphBake.GenerateGraph(
-                transform.position,
-                _viewRange,
-                _agentRadius,
-                _agentHeight,
-                _roundColliderPrecision,
-                _nodeMergeDistance,
-                _obstacleMask,
-                _walkableMask);
 
-        InstantiateNodes(points);
+        List<Vector3> nodes = NodeGraphBake.GenerateGraph(
+            transform.position,
+            _viewRange, _agentRadius, _agentHeight,
+            _roundColliderPrecision, _nodeMergeDistance,
+            _obstacleMask, _walkableMask);
 
-        Debug.Log($"{name}: Full area node bake completed. Generated {points.Count} nodes.");
+        InstantiateNodes(nodes);
+
+        Debug.Log($"{name}: Full area node bake completed. Generated {nodes.Count} nodes.");
     }
 
     /// <summary>
@@ -145,7 +142,7 @@ public class NodeGraphGenerator : MonoBehaviour
     /// </summary>
     public IEnumerable<Vector3> GetVisibleCorners()
     {
-        return CornerDetection.GetVisibleCorners(
+        return NodeSampler.GetVisibleNodes(
             transform.position,
             _viewRange,
             _agentRadius,
@@ -160,7 +157,7 @@ public class NodeGraphGenerator : MonoBehaviour
     /// </summary>
     public List<Vector3> GetMergedCorners()
     {
-        return CornerDetection.GetMergedCorners(
+        return NodeSampler.MergeNearbyNodes(
             GetVisibleCorners(),
             _nodeMergeDistance);
     }
