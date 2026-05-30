@@ -4,6 +4,11 @@ public class Hunter : MonoBehaviour
 {
     [Header("Target")]
     [SerializeField] Transform _target;
+    [SerializeField] PathfindingRunner pathfindingRunner;
+
+    [Header("Velocity")]
+    [SerializeField] float rotationSpeed = 1f;
+    [SerializeField] float moveSpeed = 1f;
 
     [Header("Vision")]
     [SerializeField] LayerMask _obstacleMask;
@@ -12,6 +17,8 @@ public class Hunter : MonoBehaviour
 
     [Header("Offsets")]
     [SerializeField] Vector3 _eyesOffset = new(0f, 1.5f, 0f);
+    [SerializeField] float _stoppingDistance = .5f;
+
 
     [Header("Debug")]
     [SerializeField] bool _drawVisionRay = true;
@@ -27,42 +34,49 @@ public class Hunter : MonoBehaviour
 
     void Update()
     {
-        EvaluateVision();
+        if (EvaluateVision()) ChaseTarget();
     }
-
-    void EvaluateVision()
+    void ChaseTarget()
     {
-        _isInRange = false;
-        _isInsideAngle = false;
-        _canSeeTarget = false;
+        float distance = Vector3.Distance(transform.position, _target.position);
+        if (distance <= _stoppingDistance) return;
 
-        if (_target == null)
-            return;
+        Vector3 direction = (_target.position - transform.position);
+        direction.Normalize();
+        direction.y = 0f;
 
-        Vector3 eyesPosition =
-            transform.position + _eyesOffset;
+        if (direction != Vector3.zero)
+        {
+            var lookRot = Quaternion.LookRotation(direction);
+            transform.rotation =
+                Quaternion.Slerp(transform.rotation, lookRot, rotationSpeed * Time.deltaTime);
+        }
 
-        Vector3 targetPosition =
-            _target.position + _eyesOffset;
+        transform.position += transform.forward * moveSpeed * Time.deltaTime;
+    }
+    bool EvaluateVision()
+    {
+        if (_target == null) return false;
+
+        Vector3 eyesPosition = transform.position + _eyesOffset;
+        Vector3 targetPosition = _target.position + _eyesOffset;
 
         _isInRange =
             Perception.IsInRange(eyesPosition, targetPosition, _viewRange);
-
-        if (!_isInRange)
-            return;
+        if (!_isInRange) return false;
 
         _isInsideAngle =
-            Perception.IsInViewAngle(
-                eyesPosition, transform.forward, targetPosition, _fovAngle);
-
-        if (!_isInsideAngle)
-            return;
+            Perception.IsInViewAngle(eyesPosition, transform.forward, targetPosition, _fovAngle);
+        if (!_isInsideAngle) return false;
 
         _canSeeTarget =
-            Perception.HasLineOfSight(
-                eyesPosition, targetPosition, _obstacleMask);
+            Perception.HasLineOfSight(eyesPosition, targetPosition, _obstacleMask);
+        if (!_canSeeTarget) return false;
+
+        return true;
     }
 
+    #region Gizmos
     void OnDrawGizmos()
     {
         Vector3 eyesPosition =
@@ -109,4 +123,5 @@ public class Hunter : MonoBehaviour
 
         Gizmos.DrawSphere(eyesPosition, 0.1f);
     }
+    #endregion
 }

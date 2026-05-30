@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 public interface INode
@@ -13,5 +13,8 @@ public interface INode
     public float GCost { get; set; }
     public float HCost { get; set; }
     public float FCost => GCost + HCost;
+
+    public void ResetPathFinding();
+    public void AddNeighbor(INode node);
 }
 

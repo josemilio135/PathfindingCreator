@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -15,56 +14,39 @@ public class PathfindingRunner : MonoBehaviour
 
     [SerializeField] SolverType solverType = SolverType.AStar;
     [SerializeField] NodesContainer nodesContainer;
+    public List<INode> LastPath { get; private set; }
 
-    IPathfindingSolver solver;
 
 
-    private void Awake()
+    IPathfindingSolver CreateSolver()
     {
-        CreateSolver();
-    }
-    void StartSolving()
-    {
-        INode start = nodesContainer.startNode;
-        INode end = nodesContainer.endNode;
-        if (start == null || end == null) return;
-
-        CreateSolver();
-    }
-
-    void CreateSolver()
-    {
-        IPathfindingSolver newSolver = solverType switch
+        return solverType switch
         {
             SolverType.DFS => new DFSSolver(),
             SolverType.BFS => new BFSSolver(),
             SolverType.Dijkstra => new DijkstraSolver(),
-
+            //SolverType.AStar => new AStarSolver(),
+            //SolverType.ThetaStar => new ThetaStarSolver(),
 
             _ => new DFSSolver()
         };
-
-        solver = newSolver;
     }
-
-}
-public class NodesContainer
-{
-    public INode startNode;
-    public INode endNode;
-
-    public void Reset()
+    public System.Collections.IEnumerator FindPath(Vector3 startPosition, Vector3 targetPosition)
     {
+        INode startNode =
+            nodesContainer.FindClosestNode(startPosition);
 
+        INode endNode =
+            nodesContainer.FindClosestNode(targetPosition);
+
+        if (startNode == null || endNode == null) yield break;
+
+        IPathfindingSolver solver = CreateSolver();
+
+        yield return solver.Solver(startNode, endNode, nodesContainer);
+
+        LastPath = solver.Path;
     }
 }
-public interface IPathfindingSolver
-{
-    public List<INode> Path { get; }
-    public Dictionary<INode, INode> ParentMap { get; }
 
-    public void Reset(NodesContainer container);
-    public IEnumerator Solver(INode start, INode end, NodesContainer container);
-    void ReconstructPath(INode start, INode end);
-}
 

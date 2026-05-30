@@ -10,7 +10,6 @@ public class DijkstraSolver : IPathfindingSolver
     HashSet<INode> _inQueue = new();
     HashSet<INode> _closed = new();
 
-
     public void Reset(NodesContainer container)
     {
         container.Reset();
@@ -57,7 +56,7 @@ public class DijkstraSolver : IPathfindingSolver
                 else
                 {
                     _openSet.Enqueue(neighbor, bestCost);
-                    _closed.Add(neighbor);
+                    _inQueue.Add(neighbor);
                 }
             }
         }
