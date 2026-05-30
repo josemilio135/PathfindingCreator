@@ -28,9 +28,9 @@ public class NavGraph : MonoBehaviour
         foreach (NavNode node in nodes)
         {
             if (node == null) continue;
-            float distance = Vector3.Distance(from, node.WorldPosition);
+            float distance = Vector3.Distance(from, node.Position);
             if (distance >= bestDistance) continue;
-            if (!Perception.HasLineOfSight_Sphere(from, node.WorldPosition, clearanceRadius, obstacleMask, out RaycastHit hit))
+            if (!Perception.HasLineOfSight_Sphere(from, node.Position, clearanceRadius, obstacleMask, out RaycastHit hit))
             {
                 continue;
             }
