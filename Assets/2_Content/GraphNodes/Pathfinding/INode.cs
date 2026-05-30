@@ -3,15 +3,15 @@ using UnityEngine;
 
 public interface INode
 {
-    Vector3 Position { get; }
+    INode Parent { get; set; }
     IReadOnlyList<INode> Neighbors { get; }
+
+    Vector3 Position { get; }
+
     float MovementCost { get; }
+
+    public float GCost { get; set; }
+    public float HCost { get; set; }
+    public float FCost => GCost + HCost;
 }
 
-// public interface ICostNode<T> : INode
-// {
-//   public  float GCost { get; set; }
-//   public  float HCost { get; set; }
-//   public  float FCost => GCost + HCost;
-// }
-// 

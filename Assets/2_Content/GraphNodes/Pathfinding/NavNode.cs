@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class NavNode : MonoBehaviour, INode
 {
-    //  public NavNode Parent { get; set; }
+    public INode Parent { get; set; }
     public IReadOnlyList<INode> Neighbors => _neighbors;
     readonly List<INode> _neighbors = new();
 

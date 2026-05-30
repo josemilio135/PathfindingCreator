@@ -38,6 +38,7 @@ public class PathfindingRunner : MonoBehaviour
         {
             SolverType.DFS => new DFSSolver(),
             SolverType.BFS => new BFSSolver(),
+            SolverType.Dijkstra => new DijkstraSolver(),
 
 
             _ => new DFSSolver()
