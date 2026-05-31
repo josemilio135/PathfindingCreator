@@ -6,9 +6,10 @@ public class Hunter : MonoBehaviour
     [Header("Target")]
     [SerializeField] Transform _target;
 
-    [SerializeField] PathfindingRunner runner;
-    [SerializeField] BaseNode pointA;
-    [SerializeField] BaseNode pointB;
+    [Header("Patrol")]
+    [SerializeField] PathfindingRunner _runner;
+    [SerializeField] Transform _waypointsRoot;
+    [SerializeField] bool _pingPong = true;
 
 
     [Header("Movement")]
@@ -40,15 +41,25 @@ public class Hunter : MonoBehaviour
     bool _isInsideAngle;
     bool _canSeeTarget;
 
+    bool _walkingToWaypoint = false;
 
     List<NavNode> _currentPath = new();
+    List<Transform> _waypoints = new();
     NavNode _currentTargetNode;
-    int _currentIndex;
-    bool _goingToB = true;
+    int _currentNodeIndex;
+    int _waypointIndex = 0;
+    int _waypointDir = 1;
 
     void Start()
     {
-        CalculatePath();
+        BuildWaypoints();
+        if (_waypoints.Count > 0) CalculatePath();
+    }
+    void BuildWaypoints()
+    {
+        _waypoints.Clear();
+        if (_waypointsRoot == null) return;
+        foreach (Transform child in _waypointsRoot) _waypoints.Add(child);
     }
     void SetTargetNode(NavNode node)
     {
@@ -58,34 +69,66 @@ public class Hunter : MonoBehaviour
     }
     void CalculatePath()
     {
+        if (_waypoints.Count == 0) return;
+
         SetTargetNode(null);
+        _walkingToWaypoint = false;
 
-        Vector3 start = _goingToB ? pointA.Position : pointB.Position;
-        Vector3 end = _goingToB ? pointB.Position : pointA.Position;
+        Vector3 start = transform.position;
+        Vector3 end = _waypoints[_waypointIndex].position;
 
-        _currentPath = runner.FindPath<NavNode>(start, end);
-        _currentIndex = 0;
+        _currentPath = _runner.FindPath<NavNode>(start, end);
+        _currentNodeIndex = 0;
     }
+    void NextWaypoint()
+    {
+        if (_pingPong)
+        {
+            _waypointIndex += _waypointDir;
 
+            if (_waypointIndex >= _waypoints.Count)
+            {
+                _waypointDir = -1;
+                _waypointIndex = _waypoints.Count - 2;
+            }
+            else if (_waypointIndex < 0)
+            {
+                _waypointDir = 1;
+                _waypointIndex = 1;
+            }
+        }
+        else _waypointIndex = (_waypointIndex + 1) % _waypoints.Count;
+
+        CalculatePath();
+    }
     void FollowPath()
     {
         if (_currentPath == null || _currentPath.Count == 0) return;
 
-        if (_currentIndex >= _currentPath.Count) //PinPon es un muñeco muy guapo y de cartón.
+        if (_walkingToWaypoint)
         {
-            _goingToB = !_goingToB;
-            CalculatePath(); // En vez de calcular de nuevo, revertir una lista
+            Vector3 waypointPos = _waypoints[_waypointIndex].position;
+            if (MoveTowards(waypointPos, nodeReachDistance))
+            {
+                _walkingToWaypoint = false;
+                NextWaypoint();
+            }
             return;
         }
 
-        NavNode targetNode = _currentPath[_currentIndex];
+        if (_currentNodeIndex >= _currentPath.Count)
+        {
+            _walkingToWaypoint = true;
+            return;
+        }
+
+        NavNode targetNode = _currentPath[_currentNodeIndex];
         if (targetNode != _currentTargetNode) SetTargetNode(targetNode);
 
-        // reemplazar con steering behaviors
         if (MoveTowards(targetNode.Position, nodeReachDistance))
         {
             SetTargetNode(null);
-            _currentIndex++;
+            _currentNodeIndex++;
         }
     }
 
@@ -193,12 +236,9 @@ public class Hunter : MonoBehaviour
         if (_drawPath && _currentPath != null && _currentPath.Count > 1)
         {
             Gizmos.color = _pathColor;
-
-            for (int i = _currentIndex; i < _currentPath.Count - 1; i++)
+            for (int i = _currentNodeIndex; i < _currentPath.Count - 1; i++)
             {
-                Gizmos.DrawLine(
-                    _currentPath[i].Position,
-                    _currentPath[i + 1].Position);
+                Gizmos.DrawLine(_currentPath[i].Position, _currentPath[i + 1].Position);
             }
         }
     }
