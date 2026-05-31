@@ -1,14 +1,20 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Hunter : MonoBehaviour
 {
     [Header("Target")]
     [SerializeField] Transform _target;
-    [SerializeField] PathfindingRunner pathfindingRunner;
 
-    [Header("Velocity")]
-    [SerializeField] float rotationSpeed = 1f;
-    [SerializeField] float moveSpeed = 1f;
+    [SerializeField] PathfindingRunner runner;
+    [SerializeField] NavNode pointA;
+    [SerializeField] NavNode pointB;
+
+
+    [Header("Movement")]
+    [SerializeField] float moveSpeed = 3f;
+    [SerializeField] float rotationSpeed = 5f;
+    [SerializeField] float nodeReachDistance = 0.2f;
 
     [Header("Vision")]
     [SerializeField] LayerMask _obstacleMask;
@@ -32,9 +38,92 @@ public class Hunter : MonoBehaviour
     bool _isInsideAngle;
     bool _canSeeTarget;
 
+
+    List<INode> currentPath = new();
+
+    int currentIndex;
+    bool goingToB = true;
+
+    void Start()
+    {
+        CalculatePath();
+    }
+
+    void CalculatePath()
+    {
+        Vector3 start =
+            goingToB
+                ? pointA.Position
+                : pointB.Position;
+
+        Vector3 end =
+            goingToB
+                ? pointB.Position
+                : pointA.Position;
+
+        currentPath =
+            runner.FindPath(start, end);
+
+        currentIndex = 0;
+    }
+
+    void FollowPath()
+    {
+        if (currentPath == null)
+            return;
+
+        if (currentPath.Count == 0)
+            return;
+
+        if (currentIndex >= currentPath.Count)
+        {
+            goingToB = !goingToB;
+
+            CalculatePath();
+            return;
+        }
+
+        Vector3 targetPosition =
+            currentPath[currentIndex].Position;
+
+        float distance =
+            Vector3.Distance(
+                transform.position,
+                targetPosition);
+
+        if (distance <= nodeReachDistance)
+        {
+            currentIndex++;
+            return;
+        }
+
+        Vector3 direction =
+            (targetPosition - transform.position).normalized;
+
+        direction.y = 0f;
+
+        if (direction != Vector3.zero)
+        {
+            Quaternion targetRotation =
+                Quaternion.LookRotation(direction);
+
+            transform.rotation =
+                Quaternion.Slerp(
+                    transform.rotation,
+                    targetRotation,
+                    rotationSpeed * Time.deltaTime);
+        }
+
+        transform.position +=
+            transform.forward *
+            moveSpeed *
+            Time.deltaTime;
+    }
+
     void Update()
     {
-        if (EvaluateVision()) ChaseTarget();
+        FollowPath();
+        //        if (EvaluateVision()) ChaseTarget();
     }
     void ChaseTarget()
     {

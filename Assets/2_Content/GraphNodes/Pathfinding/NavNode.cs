@@ -5,8 +5,9 @@ public class NavNode : MonoBehaviour, INode
 {
     public INode Parent { get; set; }
     public IReadOnlyList<INode> Neighbors => _neighbors;
-    readonly List<INode> _neighbors = new();
-    [SerializeField] List<NavNode> debugNeighbors = new();
+    [SerializeField] readonly List<NavNode> _neighbors = new();
+
+    [SerializeField] bool showGizmos = false;
 
     public Vector3 Position => transform.position;
 
@@ -26,26 +27,26 @@ public class NavNode : MonoBehaviour, INode
     public void AddNeighbor(INode node)
     {
         if (node == null) return;
-        if (node is NavNode navNode && navNode == this) return;
+        if (node is not NavNode navNode) return;
+        if (navNode == this) return;
 
-        if (!_neighbors.Contains(node)) _neighbors.Add(node);
-
-        if (node is NavNode nav) debugNeighbors.Add(nav);
+        if (!_neighbors.Contains(navNode)) _neighbors.Add(navNode);
     }
     public void ClearNeighboirs()
     {
         _neighbors.Clear();
-        debugNeighbors.Clear();
     }
 
     void OnDrawGizmosSelected()
     {
+        if (!showGizmos) return;
+
         Gizmos.color = Color.green;
 
-        foreach (var neighbor in debugNeighbors)
+        foreach (var neighbor in Neighbors)
         {
             if (neighbor == null) continue;
-            Gizmos.DrawLine(transform.position, neighbor.transform.position);
+            Gizmos.DrawLine(transform.position, neighbor.Position);
         }
     }
 }

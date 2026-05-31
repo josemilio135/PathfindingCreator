@@ -50,6 +50,12 @@ public static class Perception
 
     #region LOD Sphere
     public static bool HasLineOfSight_Sphere(
+        Vector3 from, Vector3 to, float radius, LayerMask obstacleMask)
+    {
+        return HasLineOfSight_Sphere(
+            from, to, radius, obstacleMask, out _);
+    }
+    public static bool HasLineOfSight_Sphere(
         Vector3 from, Vector3 to,
         float radius, LayerMask obstacleMask,
         out RaycastHit hit)
@@ -70,6 +76,44 @@ public static class Perception
 
         bool blocked = Physics.SphereCast(
             from, radius, direction, out hit, distance, obstacleMask);
+
+        return !blocked;
+    }
+    #endregion
+
+    #region LOD_Capsule
+
+    public static bool HasLineOfSight_Capsule(
+        Vector3 from, Vector3 to, float radius, float height, LayerMask obstacleMask)
+    {
+        return HasLineOfSight_Capsule(
+            from, to, radius, height, obstacleMask, out _);
+    }
+
+    public static bool HasLineOfSight_Capsule(
+    Vector3 from, Vector3 to,
+    float radius, float height,
+    LayerMask obstacleMask, out RaycastHit hit)
+    {
+        Vector3 direction = to - from;
+        float distance = direction.magnitude;
+
+        if (distance <= 0f)
+        {
+            hit = default;
+            return true;
+        }
+
+        direction /= distance;
+
+        Vector3 bottom = from + Vector3.up * radius;
+        Vector3 top = from + Vector3.up * (height - radius);
+
+        bool blocked =
+            Physics.CapsuleCast(
+                bottom, top, radius, direction,
+                out hit, distance, obstacleMask,
+                QueryTriggerInteraction.Ignore);
 
         return !blocked;
     }

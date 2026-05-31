@@ -42,7 +42,7 @@ public class NodeGraphGenerator : MonoBehaviour
     [SerializeField, Min(0.05f)] float _agentRadius = 0.4f;
 
     [Tooltip("Prefab instantiated for every generated node.")]
-    [SerializeField] GameObject _nodePrefab;
+    [SerializeField] NavNode _nodePrefab;
 
     [Tooltip("Amount of points generated around SphereColliders and CapsuleColliders.")]
     [SerializeField, Range(4, 32)] int _roundColliderPrecision = 8;
@@ -125,11 +125,11 @@ public class NodeGraphGenerator : MonoBehaviour
 
         string containerName = _lastGeneratedContainer.name;
 
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         DestroyImmediate(_lastGeneratedContainer.gameObject);
-        #else
+#else
         Destroy(_lastGeneratedContainer.gameObject);
-        #endif
+#endif
 
         _lastGeneratedContainer = null;
 
@@ -163,31 +163,37 @@ public class NodeGraphGenerator : MonoBehaviour
     }
     void InstantiateNodes(List<Vector3> points)
     {
-        Transform container =
-            CreateNodeContainer();
+        NodesContainer container = CreateNodeContainer();
 
         for (int i = 0; i < points.Count; i++)
         {
-        #if UNITY_EDITOR
-            GameObject node =
-                (GameObject)UnityEditor.PrefabUtility
-                .InstantiatePrefab(_nodePrefab, container);
-        #else
-            GameObject node =
-                Instantiate(_nodePrefab, container);
-        #endif
+#if UNITY_EDITOR
+            NavNode node =
+                (NavNode)UnityEditor.PrefabUtility
+                .InstantiatePrefab(_nodePrefab, container.transform);
 
-            node.transform.position =
-                points[i];
+            container.Nodes.Add(node);
+#endif
+            node.transform.position = points[i];
         }
+
+        container.BuildNeighbors();
     }
 
-    Transform CreateNodeContainer()
+    NodesContainer CreateNodeContainer()
     {
-        GameObject go = new($"{gameObject.name}_PathNodes");
-        _lastGeneratedContainer = go.transform;
+        GameObject gameObj = new($"{gameObject.name}_PathNodes");
 
-        return _lastGeneratedContainer;
+        NodesContainer container =
+            gameObj.AddComponent<NodesContainer>();
+
+        container.AgentRadius = _agentRadius;
+        container.AgentHeight = _agentHeight;
+        container.ObstacleMask = _obstacleMask;
+
+        _lastGeneratedContainer = gameObj.transform;
+
+        return container;
     }
 
     bool ValidatePrefab()

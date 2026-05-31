@@ -14,9 +14,6 @@ public class PathfindingRunner : MonoBehaviour
 
     [SerializeField] SolverType solverType = SolverType.AStar;
     [SerializeField] NodesContainer nodesContainer;
-    public List<INode> LastPath { get; private set; }
-
-
 
     IPathfindingSolver CreateSolver()
     {
@@ -31,7 +28,7 @@ public class PathfindingRunner : MonoBehaviour
             _ => new DFSSolver()
         };
     }
-    public System.Collections.IEnumerator FindPath(Vector3 startPosition, Vector3 targetPosition)
+    public List<INode> FindPath(Vector3 startPosition, Vector3 targetPosition)
     {
         INode startNode =
             nodesContainer.FindClosestNode(startPosition);
@@ -39,14 +36,15 @@ public class PathfindingRunner : MonoBehaviour
         INode endNode =
             nodesContainer.FindClosestNode(targetPosition);
 
-        if (startNode == null || endNode == null) yield break;
+        if (startNode == null || endNode == null) return null;
 
         IPathfindingSolver solver = CreateSolver();
 
-        yield return solver.Solver(startNode, endNode, nodesContainer);
+        solver.Solve(startNode, endNode, nodesContainer);
 
-        LastPath = solver.Path;
+        return solver.Path;
     }
 }
+
 
 

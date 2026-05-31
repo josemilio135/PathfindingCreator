@@ -19,7 +19,7 @@ public class DijkstraSolver : IPathfindingSolver
         _closed.Clear();
     }
 
-    public IEnumerator Solver(INode start, INode end, NodesContainer container)
+    public void Solve(INode start, INode end, NodesContainer container)
     {
         Reset(container);
         start.GCost = 0f;
@@ -36,7 +36,7 @@ public class DijkstraSolver : IPathfindingSolver
             if (currentNode == end)
             {
                 ReconstructPath(start, end);
-                yield break;
+                return;
             }
 
             foreach(var neighbor in currentNode.Neighbors)

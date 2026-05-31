@@ -14,7 +14,7 @@ public class BFSSolver : IPathfindingSolver
         ParentMap.Clear();
     }
 
-    public IEnumerator Solver(INode start, INode end, NodesContainer container)
+    public void Solve(INode start, INode end, NodesContainer container)
     {
         Reset(container);
 
@@ -32,7 +32,7 @@ public class BFSSolver : IPathfindingSolver
             if (currentNode == end)
             {
                 ReconstructPath(start, end);
-                yield break;
+                return;
             }
 
             var neighbors = currentNode.Neighbors;
