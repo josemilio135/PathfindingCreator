@@ -22,10 +22,10 @@ public class PathfindingRunner : MonoBehaviour
             SolverType.DFS => new DFSSolver(),
             SolverType.BFS => new BFSSolver(),
             SolverType.Dijkstra => new DijkstraSolver(),
-            //SolverType.AStar => new AStarSolver(),
-            //SolverType.ThetaStar => new ThetaStarSolver(),
+            SolverType.AStar => new AStarSolver(),
+            //SolverType.ThetaStar => new ThetaStarSolver(),s
 
-            _ => new DFSSolver()
+            _ => new DijkstraSolver()
         };
     }
     public List<T> FindPath<T>(Vector3 startPosition, Vector3 targetPosition) where T : BaseNode

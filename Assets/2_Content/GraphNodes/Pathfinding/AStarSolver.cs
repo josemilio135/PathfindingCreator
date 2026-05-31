@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
+using UnityEngine;
 
-public class DijkstraSolver : IPathfindingSolver
+public class AStarSolver : IPathfindingSolver
 {
     public List<BaseNode> Path { get; private set; } = new();
 
@@ -20,12 +21,16 @@ public class DijkstraSolver : IPathfindingSolver
     public void Solve(BaseNode start, BaseNode end, NodesContainer container)
     {
         Reset(container);
+
         start.GCost = 0f;
+        start.HCost = Heuristic(start, end);
 
-        _openSet.Enqueue(start, 0f);
+        _openSet.Enqueue(start, start.FCost);
         _inQueue.Add(start);
+        start.Parent = null;
 
-        while (_openSet.Count > 0f)
+
+        while (_openSet.Count > 0)
         {
             BaseNode currentNode = _openSet.Dequeue();
             _inQueue.Remove(currentNode);
@@ -37,32 +42,40 @@ public class DijkstraSolver : IPathfindingSolver
                 return;
             }
 
-            foreach (var neighbor in currentNode.Neighbors)
+            foreach (BaseNode neighbor in currentNode.Neighbors)
             {
                 if (_closed.Contains(neighbor)) continue;
 
-                float bestCost = currentNode.GCost + neighbor.MovementCost;
+                float bestCost =
+                    currentNode.GCost
+                    + Heuristic(currentNode, neighbor)
+                    * neighbor.MovementCost
+                    //+ neighbor.MovementCost;
+                    ;
+
                 if (bestCost >= neighbor.GCost) continue;
 
                 neighbor.GCost = bestCost;
+                neighbor.HCost = Heuristic(neighbor, end);
+
                 neighbor.Parent = currentNode;
 
                 if (_inQueue.Contains(neighbor))
                 {
-                    _openSet.UpdatePriority(neighbor, bestCost);
+                    _openSet.UpdatePriority(neighbor, neighbor.FCost);
                 }
                 else
                 {
-                    _openSet.Enqueue(neighbor, bestCost);
+                    _openSet.Enqueue(neighbor, neighbor.FCost);
                     _inQueue.Add(neighbor);
                 }
             }
         }
-
     }
     public void ReconstructPath(BaseNode start, BaseNode end)
     {
         BaseNode node = end;
+
         while (node != null)
         {
             Path.Add(node);
@@ -70,5 +83,9 @@ public class DijkstraSolver : IPathfindingSolver
         }
 
         Path.Reverse();
+    }
+    public static float Heuristic(BaseNode start, BaseNode end)
+    {
+        return Vector3.Distance(start.Position, end.Position);
     }
 }

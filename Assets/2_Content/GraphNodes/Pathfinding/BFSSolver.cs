@@ -3,14 +3,12 @@
 public class BFSSolver : IPathfindingSolver
 {
     public List<BaseNode> Path { get; private set; } = new();
-    public Dictionary<BaseNode, BaseNode> ParentMap { get; private set; } = new();
 
 
     public void Reset(NodesContainer container)
     {
         container.Reset();
         Path.Clear();
-        ParentMap.Clear();
     }
 
     public void Solve(BaseNode start, BaseNode end, NodesContainer container)
@@ -22,7 +20,8 @@ public class BFSSolver : IPathfindingSolver
 
         queue.Enqueue(start);
         enqueued.Add(start);
-        ParentMap[start] = null;
+
+        start.Parent = null;
 
         while (queue.Count > 0)
         {
@@ -42,20 +41,19 @@ public class BFSSolver : IPathfindingSolver
                 if (enqueued.Contains(neighbor)) continue;
 
                 enqueued.Add(neighbor);
+                neighbor.Parent = currentNode;
                 queue.Enqueue(neighbor);
-                ParentMap[neighbor] = currentNode;
             }
-
         }
-
     }
+
     public void ReconstructPath(BaseNode start, BaseNode end)
     {
         BaseNode node = end;
         while (node != null)
         {
             Path.Add(node);
-            ParentMap.TryGetValue(node, out node);
+            node = node.Parent;
         }
 
         Path.Reverse();

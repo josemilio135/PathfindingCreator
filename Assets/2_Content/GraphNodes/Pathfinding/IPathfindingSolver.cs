@@ -2,8 +2,8 @@
 
 public interface IPathfindingSolver
 {
+  //public Dictionary<BaseNode, BaseNode> ParentMap { get; }
     public List<BaseNode> Path { get; }
-    public Dictionary<BaseNode, BaseNode> ParentMap { get; }
 
     public void Reset(NodesContainer container);
     public void Solve(BaseNode start, BaseNode end, NodesContainer container);

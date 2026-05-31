@@ -20,13 +20,18 @@ public class PriorityQueue<T>
         if (_heap.Count == 0) return default;
 
         T top = _heap[0].item;
+        _indexes.Remove(top);
 
         int last = _heap.Count - 1;
 
         _heap[0] = _heap[last];
         _heap.RemoveAt(last);
 
-        if (_heap.Count > 0) HeapifyDown(0);
+        if (_heap.Count > 0)
+        {
+            _indexes[_heap[0].item] = 0;
+            HeapifyDown(0);
+        }
 
         return top;
     }

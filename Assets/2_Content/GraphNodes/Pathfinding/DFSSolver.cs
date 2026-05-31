@@ -3,7 +3,6 @@
 public class DFSSolver : IPathfindingSolver
 {
     public List<BaseNode> Path { get; private set; } = new();
-    public Dictionary<BaseNode, BaseNode> ParentMap { get; private set; } = new();
 
     private readonly HashSet<BaseNode> _visitedNodes = new();
 
@@ -11,7 +10,6 @@ public class DFSSolver : IPathfindingSolver
     {
         container.Reset();
         Path.Clear();
-        ParentMap.Clear();
         _visitedNodes.Clear();
     }
 
@@ -22,7 +20,7 @@ public class DFSSolver : IPathfindingSolver
         var stackNodes = new Stack<BaseNode>();
         stackNodes.Push(start);
 
-        ParentMap[start] = null;
+        start.Parent = null;
 
         while (stackNodes.Count > 0)
         {
@@ -44,12 +42,12 @@ public class DFSSolver : IPathfindingSolver
                 BaseNode neighbor = neighbors[i];
                 if (!_visitedNodes.Contains(neighbor))
                 {
-                    stackNodes.Push(neighbor);
-
-                    if (!ParentMap.ContainsKey(neighbor))
+                    if (neighbor.Parent == null && neighbor != start)
                     {
-                        ParentMap[neighbor] = currentNode;
+                        neighbor.Parent = currentNode;
                     }
+
+                    stackNodes.Push(neighbor);
                 }
             }
         }
@@ -61,7 +59,7 @@ public class DFSSolver : IPathfindingSolver
         while (node != null)
         {
             Path.Add(node);
-            ParentMap.TryGetValue(node, out node);
+            node = node.Parent;
         }
 
         Path.Reverse();
