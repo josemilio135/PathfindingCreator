@@ -1,13 +1,24 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-public class AStarSolver : IPathfindingSolver
+public class ThetaStarSolver : IPathfindingSolver
 {
     public List<BaseNode> Path { get; private set; } = new();
 
-    private readonly PriorityQueue<BaseNode> _openSet = new();
-    private readonly HashSet<BaseNode> _inQueue = new();
-    private readonly HashSet<BaseNode> _closed = new();
+    readonly PriorityQueue<BaseNode> _openSet = new();
+    readonly HashSet<BaseNode> _inQueue = new();
+    readonly HashSet<BaseNode> _closed = new();
+
+    private LayerMask _obstacleMask;
+    private float _agentRadius;
+    private float _agentHeight;
+
+    public ThetaStarSolver(LayerMask obstacleMask, float agentRadius, float agentHeight)
+    {
+        _obstacleMask = obstacleMask;
+        _agentRadius = agentRadius;
+        _agentHeight = agentHeight;
+    }
 
     public void Reset(NodesContainer container)
     {
@@ -29,10 +40,10 @@ public class AStarSolver : IPathfindingSolver
         _inQueue.Add(start);
         start.Parent = null;
 
-
-        while (_openSet.Count > 0)
+        while (_openSet.Count > 0f)
         {
             BaseNode currentNode = _openSet.Dequeue();
+
             _inQueue.Remove(currentNode);
             _closed.Add(currentNode);
 
@@ -46,15 +57,35 @@ public class AStarSolver : IPathfindingSolver
             {
                 if (_closed.Contains(neighbor)) continue;
 
-                float bestCost =
-                    currentNode.GCost + EuclideanCost(currentNode, neighbor);
+                BaseNode bestParent = currentNode;
+                float bestCost = currentNode.GCost + EuclideanCost(currentNode, neighbor);
+
+                if (currentNode.Parent)
+                {
+                    bool hasLOS =
+                        Perception.HasLineOfSight_Capsule
+                        (currentNode.Parent.Position, neighbor.Position,
+                        _agentRadius, _agentHeight, _obstacleMask);
+
+                    if (hasLOS)
+                    {
+                        float grandParentG =
+                            currentNode.Parent.GCost + EuclideanCost(currentNode.Parent, neighbor);
+
+                        if (grandParentG < bestCost)
+                        {
+                            bestParent = currentNode.Parent;
+                            bestCost = grandParentG;
+                        }
+                    }
+                }
 
                 if (bestCost >= neighbor.GCost) continue;
 
                 neighbor.GCost = bestCost;
                 neighbor.HCost = Heuristic(neighbor, end);
 
-                neighbor.Parent = currentNode;
+                neighbor.Parent = bestParent;
 
                 if (_inQueue.Contains(neighbor))
                 {
@@ -68,6 +99,7 @@ public class AStarSolver : IPathfindingSolver
             }
         }
     }
+
     public void ReconstructPath(BaseNode start, BaseNode end)
     {
         BaseNode node = end;
@@ -80,13 +112,14 @@ public class AStarSolver : IPathfindingSolver
 
         Path.Reverse();
     }
-    public static float Heuristic(BaseNode start, BaseNode end)
+
+    static float Heuristic(BaseNode a, BaseNode b)
     {
-        return Vector3.Distance(start.Position, end.Position);
+        return Vector3.Distance(a.Position, b.Position);
     }
-    public static float EuclideanCost(BaseNode start, BaseNode end)
+
+    static float EuclideanCost(BaseNode a, BaseNode b)
     {
-        return Heuristic(start, end) * end.MovementCost;
-                                   //+ end.MovementCost;
+        return Vector3.Distance(a.Position, b.Position) * b.MovementCost;
     }
 }
