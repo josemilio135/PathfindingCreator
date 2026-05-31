@@ -5,9 +5,7 @@ public class NavNode : MonoBehaviour, INode
 {
     public INode Parent { get; set; }
     public IReadOnlyList<INode> Neighbors => _neighbors;
-    [SerializeField] readonly List<NavNode> _neighbors = new();
-
-    [SerializeField] bool showGizmos = true;
+    [SerializeField] List<NavNode> _neighbors = new();
 
     public Vector3 Position => transform.position;
 
@@ -36,17 +34,5 @@ public class NavNode : MonoBehaviour, INode
     {
         _neighbors.Clear();
     }
-
-    void OnDrawGizmosSelected()
-    {
-        if (!showGizmos) return;
-
-        Gizmos.color = Color.green;
-
-        foreach (var neighbor in Neighbors)
-        {
-            if (neighbor == null) continue;
-            Gizmos.DrawLine(transform.position, neighbor.Position);
-        }
-    }
 }
+

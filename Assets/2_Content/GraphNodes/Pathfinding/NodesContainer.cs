@@ -99,6 +99,7 @@ public class NodesContainer : MonoBehaviour
 #if UNITY_EDITOR
 
     [SerializeField] bool _drawAgentCapsules = true;
+    [SerializeField] bool _drawConnections = true;
 
     void OnDrawGizmosSelected()
     {
@@ -107,7 +108,21 @@ public class NodesContainer : MonoBehaviour
         foreach (var node in _nodes)
         {
             if (node == null) continue;
+
             if (_drawAgentCapsules) DrawCapsule(node.Position);
+
+            if (!_drawConnections) continue;
+
+            Gizmos.color = Color.green;
+
+            foreach (var neighbour in node.Neighbors)
+            {
+                if (neighbour == null) continue;
+
+                Gizmos.DrawLine(
+                    node.Position + Vector3.up * (_agentHeight * 0.5f),
+                    neighbour.Position + Vector3.up * (_agentHeight * 0.5f));
+            }
         }
         void DrawCapsule(Vector3 position)
         {

@@ -38,8 +38,6 @@ public static class WaypointSampler
 
         if (contour.Count < 2) yield break;
 
-        float offset = agentRadius + EXTRA_OFFSET;
-
         for (int i = 0; i < contour.Count; i++)
         {
             //Three point to create a corner
@@ -60,7 +58,15 @@ public static class WaypointSampler
             if (outward == Vector3.zero) continue;
 
             //Set offset
-            Vector3 candidate = currentVert + outward * offset;
+            float offset = agentRadius + EXTRA_OFFSET;
+
+            float cornerAngleRad = angle * Mathf.Deg2Rad;
+            float miterLength = offset;
+            if (cornerAngleRad > 0.01f) miterLength = offset / Mathf.Sin(cornerAngleRad * 0.5f);
+
+            miterLength = Mathf.Min(miterLength, offset * 4f);
+
+            Vector3 candidate = currentVert + outward * miterLength;
 
             //Set on ground
             if (!AgentPhysics.TrySnapToGround(

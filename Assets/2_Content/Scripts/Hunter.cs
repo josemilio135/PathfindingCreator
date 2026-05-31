@@ -51,29 +51,18 @@ public class Hunter : MonoBehaviour
 
     void CalculatePath()
     {
-        Vector3 start =
-            goingToB
-                ? pointA.Position
-                : pointB.Position;
+        Vector3 start = goingToB ? pointA.Position : pointB.Position;
+        Vector3 end = goingToB ? pointB.Position : pointA.Position;
 
-        Vector3 end =
-            goingToB
-                ? pointB.Position
-                : pointA.Position;
-
-        currentPath =
-            runner.FindPath(start, end);
+        currentPath = runner.FindPath(start, end);
 
         currentIndex = 0;
     }
 
     void FollowPath()
     {
-        if (currentPath == null)
-            return;
-
-        if (currentPath.Count == 0)
-            return;
+        if (currentPath == null) return;
+        if (currentPath.Count == 0) return;
 
         if (currentIndex >= currentPath.Count)
         {
@@ -82,14 +71,10 @@ public class Hunter : MonoBehaviour
             CalculatePath();
             return;
         }
+        //replace with steerling
+        Vector3 targetPosition = currentPath[currentIndex].Position;
 
-        Vector3 targetPosition =
-            currentPath[currentIndex].Position;
-
-        float distance =
-            Vector3.Distance(
-                transform.position,
-                targetPosition);
+        float distance = Vector3.Distance(transform.position, targetPosition);
 
         if (distance <= nodeReachDistance)
         {
@@ -97,8 +82,7 @@ public class Hunter : MonoBehaviour
             return;
         }
 
-        Vector3 direction =
-            (targetPosition - transform.position).normalized;
+        Vector3 direction = (targetPosition - transform.position).normalized;
 
         direction.y = 0f;
 
@@ -108,16 +92,10 @@ public class Hunter : MonoBehaviour
                 Quaternion.LookRotation(direction);
 
             transform.rotation =
-                Quaternion.Slerp(
-                    transform.rotation,
-                    targetRotation,
-                    rotationSpeed * Time.deltaTime);
+                Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
         }
 
-        transform.position +=
-            transform.forward *
-            moveSpeed *
-            Time.deltaTime;
+        transform.position += transform.forward * moveSpeed * Time.deltaTime;
     }
 
     void Update()
