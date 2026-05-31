@@ -28,21 +28,27 @@ public class PathfindingRunner : MonoBehaviour
             _ => new DFSSolver()
         };
     }
-    public List<INode> FindPath(Vector3 startPosition, Vector3 targetPosition)
+    public List<T> FindPath<T>(Vector3 startPosition, Vector3 targetPosition) where T : BaseNode
     {
-        INode startNode =
+        BaseNode startNode =
             nodesContainer.FindClosestNode(startPosition);
 
-        INode endNode =
+        BaseNode endNode =
             nodesContainer.FindClosestNode(targetPosition);
 
         if (startNode == null || endNode == null) return null;
 
         IPathfindingSolver solver = CreateSolver();
-
         solver.Solve(startNode, endNode, nodesContainer);
 
-        return solver.Path;
+        List<T> result = new List<T>(solver.Path.Count);
+
+        foreach (var node in solver.Path)
+        {
+            if (node is T typed) result.Add(typed);
+        }
+
+        return result;
     }
 }
 

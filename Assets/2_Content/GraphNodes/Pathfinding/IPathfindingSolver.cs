@@ -2,11 +2,11 @@
 
 public interface IPathfindingSolver
 {
-    public List<INode> Path { get; }
-    public Dictionary<INode, INode> ParentMap { get; }
+    public List<BaseNode> Path { get; }
+    public Dictionary<BaseNode, BaseNode> ParentMap { get; }
 
     public void Reset(NodesContainer container);
-    public void Solve(INode start, INode end, NodesContainer container);
-    public void ReconstructPath(INode start, INode end);
+    public void Solve(BaseNode start, BaseNode end, NodesContainer container);
+    public void ReconstructPath(BaseNode start, BaseNode end);
 }
 

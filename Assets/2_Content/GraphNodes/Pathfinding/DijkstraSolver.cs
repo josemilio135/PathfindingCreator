@@ -3,12 +3,12 @@ using System.Collections.Generic;
 
 public class DijkstraSolver : IPathfindingSolver
 {
-    public List<INode> Path { get; private set; } = new();
-    public Dictionary<INode, INode> ParentMap { get; private set; } = new();
+    public List<BaseNode> Path { get; private set; } = new();
+    public Dictionary<BaseNode, BaseNode> ParentMap { get; private set; } = new();
 
-    PriorityQueue<INode> _openSet = new();
-    HashSet<INode> _inQueue = new();
-    HashSet<INode> _closed = new();
+    PriorityQueue<BaseNode> _openSet = new();
+    HashSet<BaseNode> _inQueue = new();
+    HashSet<BaseNode> _closed = new();
 
     public void Reset(NodesContainer container)
     {
@@ -19,7 +19,7 @@ public class DijkstraSolver : IPathfindingSolver
         _closed.Clear();
     }
 
-    public void Solve(INode start, INode end, NodesContainer container)
+    public void Solve(BaseNode start, BaseNode end, NodesContainer container)
     {
         Reset(container);
         start.GCost = 0f;
@@ -29,7 +29,7 @@ public class DijkstraSolver : IPathfindingSolver
 
         while (_openSet.Count > 0f)
         {
-            INode currentNode = _openSet.Dequeue();
+            BaseNode currentNode = _openSet.Dequeue();
             _inQueue.Remove(currentNode);
             _closed.Add(currentNode);
 
@@ -64,9 +64,9 @@ public class DijkstraSolver : IPathfindingSolver
     }
 
     
-    public void ReconstructPath(INode start, INode end)
+    public void ReconstructPath(BaseNode start, BaseNode end)
     {
-        INode node = end;
+        BaseNode node = end;
         while (node != null)
         {
             Path.Add(node);

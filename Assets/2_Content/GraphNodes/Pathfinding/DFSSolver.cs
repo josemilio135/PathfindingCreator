@@ -1,12 +1,11 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 public class DFSSolver : IPathfindingSolver
 {
-    public List<INode> Path { get; private set; } = new();
-    public Dictionary<INode, INode> ParentMap { get; private set; } = new();
+    public List<BaseNode> Path { get; private set; } = new();
+    public Dictionary<BaseNode, BaseNode> ParentMap { get; private set; } = new();
 
-    private readonly HashSet<INode> _visitedNodes = new();
+    private readonly HashSet<BaseNode> _visitedNodes = new();
 
     public void Reset(NodesContainer container)
     {
@@ -16,11 +15,11 @@ public class DFSSolver : IPathfindingSolver
         _visitedNodes.Clear();
     }
 
-    public void Solve(INode start, INode end, NodesContainer container)
+    public void Solve(BaseNode start, BaseNode end, NodesContainer container)
     {
         Reset(container);
 
-        var stackNodes = new Stack<INode>();
+        var stackNodes = new Stack<BaseNode>();
         stackNodes.Push(start);
 
         ParentMap[start] = null;
@@ -42,7 +41,7 @@ public class DFSSolver : IPathfindingSolver
 
             for (int i = neighbors.Count - 1; i >= 0; i--)
             {
-                INode neighbor = neighbors[i];
+                BaseNode neighbor = neighbors[i];
                 if (!_visitedNodes.Contains(neighbor))
                 {
                     stackNodes.Push(neighbor);
@@ -56,9 +55,9 @@ public class DFSSolver : IPathfindingSolver
         }
     }
 
-    public void ReconstructPath(INode start, INode end)
+    public void ReconstructPath(BaseNode start, BaseNode end)
     {
-        INode node = end;
+        BaseNode node = end;
         while (node != null)
         {
             Path.Add(node);

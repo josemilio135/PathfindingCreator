@@ -19,7 +19,7 @@ public static class WaypointSampler
     const float STRAIGHT_ANGLE = 10f;
 
     //Separación extra agregada al radio del agente.
-    const float EXTRA_OFFSET = 0.05f;
+    const float EXTRA_OFFSET = 0.25f;
 
     /// <summary>
     /// Generates navigable waypoint candidates from the outer corners

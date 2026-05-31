@@ -1,10 +1,9 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 public class BFSSolver : IPathfindingSolver
 {
-    public List<INode> Path { get; private set; } = new();
-    public Dictionary<INode, INode> ParentMap { get; private set; } = new();
+    public List<BaseNode> Path { get; private set; } = new();
+    public Dictionary<BaseNode, BaseNode> ParentMap { get; private set; } = new();
 
 
     public void Reset(NodesContainer container)
@@ -14,12 +13,12 @@ public class BFSSolver : IPathfindingSolver
         ParentMap.Clear();
     }
 
-    public void Solve(INode start, INode end, NodesContainer container)
+    public void Solve(BaseNode start, BaseNode end, NodesContainer container)
     {
         Reset(container);
 
-        var queue = new Queue<INode>();
-        var enqueued = new HashSet<INode>();
+        var queue = new Queue<BaseNode>();
+        var enqueued = new HashSet<BaseNode>();
 
         queue.Enqueue(start);
         enqueued.Add(start);
@@ -27,7 +26,7 @@ public class BFSSolver : IPathfindingSolver
 
         while (queue.Count > 0)
         {
-            INode currentNode = queue.Dequeue();
+            BaseNode currentNode = queue.Dequeue();
 
             if (currentNode == end)
             {
@@ -50,9 +49,9 @@ public class BFSSolver : IPathfindingSolver
         }
 
     }
-    public void ReconstructPath(INode start, INode end)
+    public void ReconstructPath(BaseNode start, BaseNode end)
     {
-        INode node = end;
+        BaseNode node = end;
         while (node != null)
         {
             Path.Add(node);

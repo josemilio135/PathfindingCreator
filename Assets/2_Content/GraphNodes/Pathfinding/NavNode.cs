@@ -1,38 +1,45 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
-public class NavNode : MonoBehaviour, INode
+public class NavNode : BaseNode
 {
-    public INode Parent { get; set; }
-    public IReadOnlyList<INode> Neighbors => _neighbors;
-    [SerializeField] List<NavNode> _neighbors = new();
+    Renderer _renderer;
+    Color _defaultColor;
 
-    public Vector3 Position => transform.position;
+    static readonly Color _singleTargetColor = Color.green;
+    static readonly Color _multiTargetColor = Color.yellow;
 
-    public float MovementCost => 1f;
+    int _targetCount = 0;
 
-    public float GCost { get; set; } = float.MaxValue;
-    public float HCost { get; set; } = 0f;
-    public float FCost => GCost + HCost;
-
-
-    public void ResetPathFinding()
+    void Awake()
     {
-        GCost = float.MaxValue;
-        HCost = 0f;
-        Parent = null;
+        _renderer = GetComponentInChildren<Renderer>();
+        _defaultColor = _renderer.GetColor();
     }
-    public void AddNeighbor(INode node)
-    {
-        if (node == null) return;
-        if (node is not NavNode navNode) return;
-        if (navNode == this) return;
 
-        if (!_neighbors.Contains(navNode)) _neighbors.Add(navNode);
-    }
-    public void ClearNeighboirs()
+
+    public void AddTarget()
     {
-        _neighbors.Clear();
+        _targetCount++;
+        RefreshColor();
+    }
+
+    public void RemoveTarget()
+    {
+        _targetCount = Mathf.Max(0, _targetCount - 1);
+        RefreshColor();
+    }
+
+    void RefreshColor()
+    {
+        if (_renderer == null) return;
+
+        Color color = _targetCount switch
+        {
+            0 =>  _defaultColor,
+            1 => _singleTargetColor,
+            _ => _multiTargetColor
+        };
+
+        _renderer.SetColor(color);
     }
 }
-

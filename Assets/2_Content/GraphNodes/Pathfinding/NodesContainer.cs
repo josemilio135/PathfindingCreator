@@ -8,9 +8,9 @@ public class NodesContainer : MonoBehaviour
     [SerializeField] float _agentHeight;
 
     [SerializeField] LayerMask _obstacleMask;
-    [SerializeField] List<NavNode> _nodes = new();
+    [SerializeField] List<BaseNode> _nodes = new();
 
-    public List<NavNode> Nodes
+    public List<BaseNode> Nodes
     {
         get => _nodes;
         set => _nodes = value;
@@ -33,7 +33,7 @@ public class NodesContainer : MonoBehaviour
 
     public void Reset()
     {
-        foreach (var node in _nodes)
+        foreach (BaseNode node in _nodes)
         {
             if (node == null) continue;
             node.ResetPathFinding();
@@ -43,7 +43,7 @@ public class NodesContainer : MonoBehaviour
     [ContextMenu("Build Neighbors")]
     public void BuildNeighbors()
     {
-        foreach (var node in _nodes)
+        foreach (BaseNode node in _nodes)
         {
             if (node == null) continue;
             node.ClearNeighboirs();
@@ -51,13 +51,13 @@ public class NodesContainer : MonoBehaviour
 
         for (int i = 0; i < _nodes.Count; i++)
         {
-            INode currentNode = _nodes[i];
+            BaseNode currentNode = _nodes[i];
 
             if (currentNode == null) continue;
 
             for (int j = 0; j < _nodes.Count; j++)
             {
-                INode otherNode = _nodes[j];
+                BaseNode otherNode = _nodes[j];
 
                 if (otherNode == null) continue;
                 if (otherNode == currentNode) continue;
@@ -73,9 +73,9 @@ public class NodesContainer : MonoBehaviour
         Debug.Log("Neighbors generated.");
     }
 
-    public INode FindClosestNode(Vector3 position)
+    public BaseNode FindClosestNode(Vector3 position)
     {
-        INode closest = null;
+        BaseNode closest = null;
         float bestDistance = float.MaxValue;
 
         foreach (var node in _nodes)

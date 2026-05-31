@@ -7,8 +7,8 @@ public class Hunter : MonoBehaviour
     [SerializeField] Transform _target;
 
     [SerializeField] PathfindingRunner runner;
-    [SerializeField] NavNode pointA;
-    [SerializeField] NavNode pointB;
+    [SerializeField] BaseNode pointA;
+    [SerializeField] BaseNode pointB;
 
 
     [Header("Movement")]
@@ -29,97 +29,75 @@ public class Hunter : MonoBehaviour
     [Header("Debug")]
     [SerializeField] bool _drawVisionRay = true;
     [SerializeField] bool _drawVisionRange = true;
+    [SerializeField] bool _drawPath = true;
 
     [SerializeField] Color _rangeColor = Color.cyan;
     [SerializeField] Color _viewAngleColor = Color.blue;
     [SerializeField] Color _lodColor = Color.green;
+    [SerializeField] Color _pathColor = Color.white;
 
     bool _isInRange;
     bool _isInsideAngle;
     bool _canSeeTarget;
 
 
-    List<INode> currentPath = new();
-
-    int currentIndex;
-    bool goingToB = true;
+    List<NavNode> _currentPath = new();
+    NavNode _currentTargetNode;
+    int _currentIndex;
+    bool _goingToB = true;
 
     void Start()
     {
         CalculatePath();
     }
-
+    void SetTargetNode(NavNode node)
+    {
+        _currentTargetNode?.RemoveTarget(); // <-- visual
+        _currentTargetNode = node;
+        _currentTargetNode?.AddTarget();    // <-- visual
+    }
     void CalculatePath()
     {
-        Vector3 start = goingToB ? pointA.Position : pointB.Position;
-        Vector3 end = goingToB ? pointB.Position : pointA.Position;
+        SetTargetNode(null);
 
-        currentPath = runner.FindPath(start, end);
+        Vector3 start = _goingToB ? pointA.Position : pointB.Position;
+        Vector3 end = _goingToB ? pointB.Position : pointA.Position;
 
-        currentIndex = 0;
+        _currentPath = runner.FindPath<NavNode>(start, end);
+        _currentIndex = 0;
     }
 
     void FollowPath()
     {
-        if (currentPath == null) return;
-        if (currentPath.Count == 0) return;
+        if (_currentPath == null || _currentPath.Count == 0) return;
 
-        if (currentIndex >= currentPath.Count)
+        if (_currentIndex >= _currentPath.Count) //PinPon es un muñeco muy guapo y de cartón.
         {
-            goingToB = !goingToB;
-
-            CalculatePath();
-            return;
-        }
-        //replace with steerling
-        Vector3 targetPosition = currentPath[currentIndex].Position;
-
-        float distance = Vector3.Distance(transform.position, targetPosition);
-
-        if (distance <= nodeReachDistance)
-        {
-            currentIndex++;
+            _goingToB = !_goingToB;
+            CalculatePath(); // En vez de calcular de nuevo, revertir una lista
             return;
         }
 
-        Vector3 direction = (targetPosition - transform.position).normalized;
+        NavNode targetNode = _currentPath[_currentIndex];
+        if (targetNode != _currentTargetNode) SetTargetNode(targetNode);
 
-        direction.y = 0f;
-
-        if (direction != Vector3.zero)
+        // reemplazar con steering behaviors
+        if (MoveTowards(targetNode.Position, nodeReachDistance))
         {
-            Quaternion targetRotation =
-                Quaternion.LookRotation(direction);
-
-            transform.rotation =
-                Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+            SetTargetNode(null);
+            _currentIndex++;
         }
-
-        transform.position += transform.forward * moveSpeed * Time.deltaTime;
     }
 
     void Update()
     {
         FollowPath();
-        //        if (EvaluateVision()) ChaseTarget();
+        // if (EvaluateVision()) ChaseTarget();
     }
     void ChaseTarget()
     {
-        float distance = Vector3.Distance(transform.position, _target.position);
-        if (distance <= _stoppingDistance) return;
-
-        Vector3 direction = (_target.position - transform.position);
-        direction.Normalize();
-        direction.y = 0f;
-
-        if (direction != Vector3.zero)
-        {
-            var lookRot = Quaternion.LookRotation(direction);
-            transform.rotation =
-                Quaternion.Slerp(transform.rotation, lookRot, rotationSpeed * Time.deltaTime);
-        }
-
-        transform.position += transform.forward * moveSpeed * Time.deltaTime;
+        if (_target == null) return;
+        MoveTowards(_target.position, _stoppingDistance);
     }
     bool EvaluateVision()
     {
@@ -142,7 +120,29 @@ public class Hunter : MonoBehaviour
 
         return true;
     }
+    bool MoveTowards(Vector3 target, float stoppingDistance)
+    {
+        float distance = Vector3.Distance(transform.position, target);
+        if (distance <= stoppingDistance) return true;
 
+        Vector3 direction = (target - transform.position).normalized;
+        direction.y = 0f;
+
+        if (direction != Vector3.zero)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+        }
+
+        transform.position += transform.forward * moveSpeed * Time.deltaTime;
+        return false;
+    }
+
+    void OnDestroy()
+    {
+        SetTargetNode(null);
+    }
     #region Gizmos
     void OnDrawGizmos()
     {
@@ -187,8 +187,20 @@ public class Hunter : MonoBehaviour
         }
 
         Gizmos.color = Color.white;
-
         Gizmos.DrawSphere(eyesPosition, 0.1f);
+
+
+        if (_drawPath && _currentPath != null && _currentPath.Count > 1)
+        {
+            Gizmos.color = _pathColor;
+
+            for (int i = _currentIndex; i < _currentPath.Count - 1; i++)
+            {
+                Gizmos.DrawLine(
+                    _currentPath[i].Position,
+                    _currentPath[i + 1].Position);
+            }
+        }
     }
     #endregion
 }

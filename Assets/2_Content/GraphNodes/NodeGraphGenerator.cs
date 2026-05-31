@@ -42,7 +42,7 @@ public class NodeGraphGenerator : MonoBehaviour
     [SerializeField, Min(0.05f)] float _agentRadius = 0.4f;
 
     [Tooltip("Prefab instantiated for every generated node.")]
-    [SerializeField] NavNode _nodePrefab;
+    [SerializeField] BaseNode _nodePrefab;
 
     [Tooltip("Amount of points generated around SphereColliders and CapsuleColliders.")]
     [SerializeField, Range(4, 32)] int _roundColliderPrecision = 8;
@@ -168,8 +168,8 @@ public class NodeGraphGenerator : MonoBehaviour
         for (int i = 0; i < points.Count; i++)
         {
 #if UNITY_EDITOR
-            NavNode node =
-                (NavNode)UnityEditor.PrefabUtility
+            BaseNode node =
+                (BaseNode)UnityEditor.PrefabUtility
                 .InstantiatePrefab(_nodePrefab, container.transform);
 
             container.Nodes.Add(node);
