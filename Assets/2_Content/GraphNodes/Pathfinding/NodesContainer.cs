@@ -62,14 +62,10 @@ public class NodesContainer : MonoBehaviour
                 if (otherNode == null) continue;
                 if (otherNode == currentNode) continue;
 
-                Vector3 from = currentNode.Position + Vector3.up * (_agentHeight * 0.5f);
-                Vector3 to = otherNode.Position + Vector3.up * (_agentHeight * 0.5f);
-
-
                 bool hasLOS =
-                   Perception.HasLineOfSight_Capsule(
-                       from, to, _agentRadius, _agentHeight,
-                       _obstacleMask, out var hit);
+                     Perception.HasLineOfSight_Capsule(
+                        currentNode.Position, otherNode.Position,
+                        _agentRadius, _agentHeight, _obstacleMask);
 
                 if (hasLOS) currentNode.AddNeighbor(otherNode);
             }
@@ -96,4 +92,49 @@ public class NodesContainer : MonoBehaviour
 
         return closest;
     }
+
+
+
+
+#if UNITY_EDITOR
+
+    [SerializeField] bool _drawAgentCapsules = true;
+
+    void OnDrawGizmosSelected()
+    {
+        if (_nodes == null) return;
+
+        foreach (var node in _nodes)
+        {
+            if (node == null) continue;
+            if (_drawAgentCapsules) DrawCapsule(node.Position);
+        }
+        void DrawCapsule(Vector3 position)
+        {
+            Gizmos.color = Color.cyan;
+
+            Vector3 bottom = position + Vector3.up * _agentRadius;
+            Vector3 top = position + Vector3.up * (_agentHeight - _agentRadius);
+
+            Gizmos.DrawWireSphere(bottom, _agentRadius);
+            Gizmos.DrawWireSphere(top, _agentRadius);
+
+            Gizmos.DrawLine(
+                bottom + Vector3.forward * _agentRadius,
+                top + Vector3.forward * _agentRadius);
+
+            Gizmos.DrawLine(
+                bottom - Vector3.forward * _agentRadius,
+                top - Vector3.forward * _agentRadius);
+
+            Gizmos.DrawLine(
+                bottom + Vector3.right * _agentRadius,
+                top + Vector3.right * _agentRadius);
+
+            Gizmos.DrawLine(
+                bottom - Vector3.right * _agentRadius,
+                top - Vector3.right * _agentRadius);
+        }
+    }
+#endif
 }

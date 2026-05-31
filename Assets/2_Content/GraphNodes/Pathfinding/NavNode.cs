@@ -7,7 +7,7 @@ public class NavNode : MonoBehaviour, INode
     public IReadOnlyList<INode> Neighbors => _neighbors;
     [SerializeField] readonly List<NavNode> _neighbors = new();
 
-    [SerializeField] bool showGizmos = false;
+    [SerializeField] bool showGizmos = true;
 
     public Vector3 Position => transform.position;
 

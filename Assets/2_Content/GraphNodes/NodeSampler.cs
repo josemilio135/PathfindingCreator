@@ -28,10 +28,12 @@ public static class NodeSampler
             yield break;
 
         float agentBottom = groundPoint.y;
-        Vector3 eyeOrigin = groundPoint + Vector3.up * (agentHeight * 0.5f);
+        // Vector3 eyeOrigin = groundPoint + Vector3.up * (agentHeight * 0.5f);
 
         int count = Physics.OverlapSphereNonAlloc(
-            eyeOrigin, viewRange,
+          //eyeOrigin,
+            groundPoint,
+            viewRange,
             _overlapBuffer, obstacleMask, QueryTriggerInteraction.Ignore);
 
         for (int i = 0; i < count; i++)
@@ -60,10 +62,16 @@ public static class NodeSampler
 
             foreach (Vector3 node in candidates)
             {
-                Vector3 eyeTarget = node + Vector3.up * (agentHeight * 0.5f);
+                // Vector3 eyeTarget = node + Vector3.up * (agentHeight * 0.5f);
+                //
+                // if (Perception.HasLineOfSight(eyeOrigin, eyeTarget, obstacleMask))
+                //     yield return node;
 
-                if (Perception.HasLineOfSight(eyeOrigin, eyeTarget, obstacleMask))
+                if (Perception.HasLineOfSight_Capsule(
+                   groundPoint, node, agentRadius, agentHeight, obstacleMask))
+                {
                     yield return node;
+                }
             }
         }
     }
