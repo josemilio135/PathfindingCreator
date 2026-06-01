@@ -6,16 +6,13 @@ using UnityEngine;
 public class NodeGraphGenerator_Editor : Editor
 {
     NodeGraphGenerator _viewer;
+    Editor _agentEditor;
 
     SerializedProperty _agent;
+    SerializedProperty _nodePrefab;
 
-    SerializedProperty _agentObstacleMask;
-    SerializedProperty _agentWalkableMask;
-    SerializedObject _agentSO;
 
     SerializedProperty _viewRange;
-
-    SerializedProperty _nodePrefab;
 
     SerializedProperty _roundColliderPrecision;
     SerializedProperty _nodeMergeDistance;
@@ -25,6 +22,7 @@ public class NodeGraphGenerator_Editor : Editor
     SerializedProperty _automaticUndo;
 
     bool _showGizmos = true;
+    bool _showAgentConfig = true;
 
     bool _drawAgentSize = true;
     bool _drawViewRange = true;
@@ -67,10 +65,11 @@ public class NodeGraphGenerator_Editor : Editor
     {
         serializedObject.Update();
 
-        RefreshAgentSO();
-        _agentSO?.Update();
+        EditorGUILayout.HelpBox(
+            "Convex MeshColliders are treated as regular obstacles.\n" +
+            "Non-convex MeshColliders are treated as architectural surfaces for detailed corner detection.",
+            MessageType.Info);
 
-        DrawDetectionSection();
         EditorGUILayout.Space();
 
         DrawAgentSection();
@@ -87,75 +86,72 @@ public class NodeGraphGenerator_Editor : Editor
 
         DrawGizmosSection();
 
-        _agentSO?.ApplyModifiedProperties();
-
         serializedObject.ApplyModifiedProperties();
-    }
-
-    void DrawDetectionSection()
-    {
-        EditorGUILayout.LabelField
-            ("Detection Objects", EditorStyles.boldLabel);
-
-        EditorGUILayout.PropertyField(
-            _viewRange, new GUIContent("View Range"));
-
-        if (_agentSO == null)
-        {
-            EditorGUILayout.HelpBox("Assign an Agent Config to configure layers.", MessageType.Warning);
-        }
-        else
-        {
-            DrawLayerField(
-                _agentObstacleMask,
-                "Obstacle Layers",
-                !_viewer.HasObstacleMask,
-                MessageType.Error,
-                "Required.");
-
-            EditorGUI.BeginDisabledGroup(_viewer.IgnoreWalkableFloor);
-
-            DrawLayerField(
-                _agentWalkableMask,
-                "Walkable Layers",
-                !_viewer.IgnoreWalkableFloor && !_viewer.HasWalkableMask,
-                MessageType.Warning,
-                "Required unless Ignore Walkable Floor is enabled.");
-
-            EditorGUI.EndDisabledGroup();
-        }
-
-        EditorGUILayout.HelpBox(
-            "Convex MeshColliders are treated as regular obstacles.\n" +
-            "Non-convex MeshColliders are treated as architectural surfaces for detailed corner detection.",
-            MessageType.Info);
     }
 
     void DrawAgentSection()
     {
-        EditorGUILayout.LabelField("Agent Settings", EditorStyles.boldLabel);
+        EditorGUILayout.BeginHorizontal();
 
-        EditorGUILayout.PropertyField(_agent, new GUIContent("Agent Config"));
-    }
-    void RefreshAgentSO()
-    {
-        AgentConfig agentAsset = _viewer != null
-            ? (AgentConfig)_agent.objectReferenceValue : null;
+        EditorGUILayout.PropertyField(
+            _agent,
+            new GUIContent("Agent Config"));
 
-        if (agentAsset == null)
+        if (_agent.objectReferenceValue == null)
         {
-            _agentSO = null;
-            _agentObstacleMask = null;
-            _agentWalkableMask = null;
+            if (GUILayout.Button("Create", GUILayout.Width(70f)))
+            {
+                CreateAgentConfig();
+            }
+        }
+
+        EditorGUILayout.EndHorizontal();
+
+        AgentConfig config =
+            _agent.objectReferenceValue as AgentConfig;
+
+        if (config == null)
+        {
+            EditorGUILayout.HelpBox(
+                "Assign or create an Agent Config.",
+                MessageType.Warning);
+
             return;
         }
 
-        if (_agentSO == null || _agentSO.targetObject != agentAsset)
+        _showAgentConfig =
+            EditorGUILayout.Foldout(
+                _showAgentConfig,
+                "Edit Agent Config",
+                true);
+
+        if (!_showAgentConfig)
+            return;
+
+        EditorGUI.indentLevel++;
+
+        CreateCachedEditor(
+            config,
+            null,
+            ref _agentEditor);
+
+        if (_agentEditor != null)
         {
-            _agentSO = new SerializedObject(agentAsset);
-            _agentObstacleMask = _agentSO.FindProperty("ObstacleMask");
-            _agentWalkableMask = _agentSO.FindProperty("WalkableMask");
+            EditorGUILayout.BeginVertical("box");
+            _agentEditor.OnInspectorGUI();
+            EditorGUILayout.EndVertical();
         }
+
+        EditorGUI.indentLevel--;
+    }
+    void CreateAgentConfig()
+    {
+        AgentConfig asset =
+            ScriptableAssetUtility.CreateAssetNextToScript<AgentConfig>(
+                _viewer, "AgentConfig");
+
+        _agent.objectReferenceValue = asset;
+        serializedObject.ApplyModifiedProperties();
     }
     void DrawNodePrefab()
     {
@@ -168,6 +164,10 @@ public class NodeGraphGenerator_Editor : Editor
     {
         EditorGUILayout.LabelField(
             "Advanced Settings", EditorStyles.boldLabel);
+
+        EditorGUILayout.PropertyField(
+            _viewRange,
+            new GUIContent("View Range"));
 
         EditorGUILayout.IntSlider(
             _roundColliderPrecision,
@@ -188,47 +188,23 @@ public class NodeGraphGenerator_Editor : Editor
             180f,
             new GUIContent("Min Corner Angle"));
     }
-
-    void DrawLayerField(
-        SerializedProperty property, string label, bool showWarning, MessageType type, string warning)
-    {
-        Rect rect = EditorGUILayout.GetControlRect();
-
-        float boxSize = 18f;
-
-        Rect fieldRect = new(
-                rect.x,
-                rect.y,
-                rect.width - boxSize - 4f,
-                rect.height);
-
-        Rect warningRect = new(
-                rect.xMax - boxSize,
-                rect.y,
-                boxSize,
-                rect.height);
-
-        EditorGUI.PropertyField(
-            fieldRect, property, new GUIContent(label));
-
-        if (!showWarning) return;
-
-        GUIContent icon =
-            EditorGUIUtility.IconContent(
-                type == MessageType.Error ? "console.erroricon" : "console.warnicon");
-
-        warningRect.y += 1f;
-
-        GUI.Label(warningRect, icon);
-
-        Rect helpRect = EditorGUILayout.GetControlRect(false, 36f);
-
-        EditorGUI.HelpBox(helpRect, warning, type);
-    }
-
     void DrawBakeButtons()
     {
         EditorGUILayout.LabelField("Bake Tools", EditorStyles.boldLabel);
+
+        if (_agent.objectReferenceValue == null)
+        {
+            EditorGUILayout.HelpBox(
+                "Missing Agent Config.",
+                MessageType.Warning);
+        }
+
+        if (_nodePrefab.objectReferenceValue == null)
+        {
+            EditorGUILayout.HelpBox(
+                "Assign a Node Prefab before baking.",
+                MessageType.Warning);
+        }
 
         EditorGUI.BeginDisabledGroup(!_viewer.CanBake);
 

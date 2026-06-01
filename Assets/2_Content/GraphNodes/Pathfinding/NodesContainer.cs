@@ -3,20 +3,46 @@ using UnityEngine;
 
 public class NodesContainer : MonoBehaviour
 {
-    [Header("LOS")]
     [SerializeField] AgentConfig _agent;
     [SerializeField] List<BaseNode> _nodes = new();
+
+    [Header("Show Gizmos")]
+    [SerializeField] bool _drawAgentCapsules = true;
+    [SerializeField] bool _drawConnections = true;
+
+    public AgentConfig Agent
+    {
+        get => _agent;
+        set => _agent = value;
+    }
 
     public List<BaseNode> Nodes
     {
         get => _nodes;
         set => _nodes = value;
     }
-    public AgentConfig Agent
+
+    #region Editor Stadistics
+    public int ConnectionCount
     {
-        get => _agent;
-        set => _agent = value;
+        get
+        {
+            int count = 0;
+            foreach (BaseNode node in _nodes)
+            {
+                if (node == null) continue;
+                count += node.Neighbors.Count;
+            }
+            return count;
+        }
     }
+    public float AverageConnections => _nodes.Count == 0 ? 0f : (float)ConnectionCount / _nodes.Count;
+    public int EstimatedDFS_BFS => _nodes.Count + ConnectionCount;
+    public int EstimatedDijkstra => Mathf.RoundToInt(ConnectionCount * Mathf.Log(Mathf.Max(_nodes.Count, 2), 2));
+    public int EstimatedAStar => EstimatedDijkstra;
+    public int EstimatedThetaStar => EstimatedDijkstra + ConnectionCount;
+    public int EstimatedThetaStarSmooth => EstimatedDijkstra + (ConnectionCount * 2);
+    #endregion
 
     public void Reset()
     {
@@ -109,9 +135,6 @@ public class NodesContainer : MonoBehaviour
 
 
 #if UNITY_EDITOR
-
-    [SerializeField] bool _drawAgentCapsules = true;
-    [SerializeField] bool _drawConnections = true;
     bool _missingAgentWarningShown;
     void OnDrawGizmosSelected()
     {

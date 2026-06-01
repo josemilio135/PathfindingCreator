@@ -56,7 +56,13 @@ public class NodeGraphGenerator : MonoBehaviour
     public bool HasObstacleMask => _agent != null && _agent.ObstacleMask.value != 0;
     public bool HasWalkableMask => _agent != null && _agent.WalkableMask.value != 0;
     public bool IgnoreWalkableFloor => _agent != null && _agent.IgnoreWalkableFloor;
-    public bool CanBake => _agent != null && HasObstacleMask && (_agent.IgnoreWalkableFloor || HasWalkableMask);
+
+    public bool CanBake => 
+        _agent != null 
+        && _nodePrefab != null
+        && HasObstacleMask 
+        && (_agent.IgnoreWalkableFloor || HasWalkableMask);
+
     #endregion
 
     Transform _lastGeneratedContainer;
@@ -168,7 +174,7 @@ public class NodeGraphGenerator : MonoBehaviour
 
     NodesContainer CreateNodeContainer()
     {
-        GameObject gameObj = new($"{gameObject.name}_PathNodes");
+        GameObject gameObj = new($"NODES_CONTAINER");
 
         NodesContainer container =
             gameObj.AddComponent<NodesContainer>();
