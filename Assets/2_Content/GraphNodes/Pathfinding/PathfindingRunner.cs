@@ -13,22 +13,19 @@ public class PathfindingRunner : MonoBehaviour
         ThetaStarSmooth
     }
 
+    [SerializeField] AgentConfig _agent;
+
+    [Space]
     [SerializeField] SolverType solverType = SolverType.AStar;
     [SerializeField] NodesContainer nodesContainer;
+
+
     public NodesContainer Container => nodesContainer;
     public SolverType CurrentSolverType
     {
         get => solverType;
         set => solverType = value;
     }
-
-    [SerializeField] public LayerMask _obstacleMask;
-
-    [Tooltip("Vertical space required for the agent to fit and move.")]
-    [SerializeField, Min(0.1f)] public float _agentHeight = 2f;
-
-    [Tooltip("Horizontal collision size used for clearance checks.")]
-    [SerializeField, Min(0.05f)] public float _agentRadius = 0.4f;
 
     IPathfindingSolver CreateSolver()
     {
@@ -38,8 +35,8 @@ public class PathfindingRunner : MonoBehaviour
             SolverType.BFS => new BFSSolver(),
             SolverType.Dijkstra => new DijkstraSolver(),
             SolverType.AStar => new AStarSolver(),
-            SolverType.ThetaStar => new ThetaStarSolver(_obstacleMask, _agentRadius, _agentHeight),
-            SolverType.ThetaStarSmooth => new ThetaStarSmoothSolver(_obstacleMask, _agentRadius, _agentHeight),
+            SolverType.ThetaStar => new ThetaStarSolver(_agent.ObstacleMask, _agent.Radius, _agent.Height),
+            SolverType.ThetaStarSmooth => new ThetaStarSmoothSolver(_agent.ObstacleMask, _agent.Radius, _agent.Height),
 
             _ => new AStarSolver()
         };

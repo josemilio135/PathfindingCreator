@@ -29,12 +29,11 @@ public static class WaypointSampler
     /// </summary>
     public static IEnumerable<Vector3> SampleObstacleCorners(
         Collider obstacle,
-        float agentBottom, float agentRadius, float agentHeight,
-        int curvedPrecision,
-        LayerMask obstacleMask, LayerMask walkableMask)
+        float agentBottom, AgentConfig agent,
+        int curvedPrecision)
     {
         List<Vector3> contour = ColliderContourExtractor.Extract(
-            obstacle, agentBottom, agentHeight, curvedPrecision);
+            obstacle, agentBottom, agent.Height, curvedPrecision);
 
         if (contour.Count < 2) yield break;
 
@@ -58,7 +57,7 @@ public static class WaypointSampler
             if (outward == Vector3.zero) continue;
 
             //Set offset
-            float offset = agentRadius + EXTRA_OFFSET;
+            float offset = agent.Radius + EXTRA_OFFSET;
 
             float cornerAngleRad = angle * Mathf.Deg2Rad;
             float miterLength = offset;
@@ -70,8 +69,8 @@ public static class WaypointSampler
 
             //Set on ground
             if (!AgentPhysics.TrySnapToGround(
-                candidate, agentHeight, agentRadius,
-                obstacle, obstacleMask, walkableMask,
+                candidate, agent.Height, agent.Radius,
+                obstacle, agent.ObstacleMask, agent.WalkableMask,
                 out candidate))
                 continue;
 
@@ -85,8 +84,7 @@ public static class WaypointSampler
     /// </summary>
     public static IEnumerable<Vector3> SampleArchitectureCorners(
         MeshCollider architecture,
-        float agentBottom, float agentRadius, float agentHeight,
-        LayerMask obstacleMask, LayerMask walkableMask)
+        float agentBottom, AgentConfig agent)
     {
         if (architecture.sharedMesh == null) yield break;
 
@@ -95,7 +93,7 @@ public static class WaypointSampler
         int[] tris = mesh.triangles;
         Transform t = architecture.transform;
 
-        float agentTop = agentBottom + agentHeight;
+        float agentTop = agentBottom + agent.Height;
 
         Dictionary<Vector2Int, List<Vector3>> vertexNormals = new();
 
@@ -126,11 +124,11 @@ public static class WaypointSampler
             if (!IsCornerVertex(normals, out Vector3 averageNormal)) continue;
 
             Vector3 corner = new(key.x * VERTEX_SNAP, agentBottom, key.y * VERTEX_SNAP);
-            Vector3 candidate = corner + averageNormal * (agentRadius + EXTRA_OFFSET);
+            Vector3 candidate = corner + averageNormal * (agent.Radius + EXTRA_OFFSET);
 
             if (!AgentPhysics.TrySnapToGround(
-                candidate, agentHeight, agentRadius,
-                architecture, obstacleMask, walkableMask,
+                candidate, agent.Height, agent.Radius,
+                architecture, agent.ObstacleMask, agent.WalkableMask,
                 out candidate))
                 continue;
 

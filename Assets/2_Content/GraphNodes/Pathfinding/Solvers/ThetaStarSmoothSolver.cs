@@ -17,6 +17,7 @@ public class ThetaStarSmoothSolver : IPathfindingSolver
         _agentRadius = agentRadius;
         _agentHeight = agentHeight;
     }
+
     public void Reset(NodesContainer container)
     {
         container.Reset();
@@ -47,7 +48,9 @@ public class ThetaStarSmoothSolver : IPathfindingSolver
             bool hasLOS = Perception.HasLineOfSight_Capsule(
                 rawPath[anchor].Position,
                 rawPath[i + 1].Position,
-                _agentRadius, _agentHeight, _obstacleMask);
+                _agentRadius,
+                _agentHeight,
+                _obstacleMask);
 
             if (!hasLOS)
             {

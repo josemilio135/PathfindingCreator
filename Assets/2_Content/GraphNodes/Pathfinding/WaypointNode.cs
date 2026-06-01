@@ -10,7 +10,9 @@
 
             bool hasLOS = Perception.HasLineOfSight_Capsule(
                 Position, node.Position,
-                container.AgentRadius, container.AgentHeight, container.ObstacleMask);
+                container.Agent.Radius,
+                container.Agent.Height,
+                container.Agent.ObstacleMask);
 
             if (!hasLOS) continue;
 

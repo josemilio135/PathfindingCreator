@@ -65,7 +65,9 @@ public class ThetaStarSolver : IPathfindingSolver
                     bool hasLOS =
                         Perception.HasLineOfSight_Capsule
                         (currentNode.Parent.Position, neighbor.Position,
-                        _agentRadius, _agentHeight, _obstacleMask);
+                        _agentRadius,
+                        _agentHeight, 
+                        _obstacleMask);
 
                     if (hasLOS)
                     {

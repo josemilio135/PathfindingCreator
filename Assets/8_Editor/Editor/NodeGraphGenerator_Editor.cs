@@ -7,12 +7,13 @@ public class NodeGraphGenerator_Editor : Editor
 {
     NodeGraphGenerator _viewer;
 
-    SerializedProperty _obstacleMask;
-    SerializedProperty _walkableMask;
-    SerializedProperty _viewRange;
+    SerializedProperty _agent;
 
-    SerializedProperty _agentHeight;
-    SerializedProperty _agentRadius;
+    SerializedProperty _agentObstacleMask;
+    SerializedProperty _agentWalkableMask;
+    SerializedObject _agentSO;
+
+    SerializedProperty _viewRange;
 
     SerializedProperty _nodePrefab;
 
@@ -20,7 +21,6 @@ public class NodeGraphGenerator_Editor : Editor
     SerializedProperty _nodeMergeDistance;
     SerializedProperty _extraOffset;
     SerializedProperty _minCornerAngle;
-    SerializedProperty _ignoreWalkableFloor;
 
     SerializedProperty _automaticUndo;
 
@@ -35,16 +35,10 @@ public class NodeGraphGenerator_Editor : Editor
     {
         _viewer = (NodeGraphGenerator)target;
 
-        _obstacleMask =
-            serializedObject.FindProperty("_obstacleMask");
-        _walkableMask =
-            serializedObject.FindProperty("_walkableMask");
+        _agent =
+            serializedObject.FindProperty("_agent");
         _viewRange =
             serializedObject.FindProperty("_viewRange");
-        _agentHeight =
-            serializedObject.FindProperty("_agentHeight");
-        _agentRadius =
-            serializedObject.FindProperty("_agentRadius");
         _nodePrefab =
             serializedObject.FindProperty("_nodePrefab");
         _roundColliderPrecision =
@@ -55,8 +49,6 @@ public class NodeGraphGenerator_Editor : Editor
             serializedObject.FindProperty("_extraOffset");
         _minCornerAngle =
             serializedObject.FindProperty("_minCornerAngle");
-        _ignoreWalkableFloor =
-            serializedObject.FindProperty("_ignoreWalkableFloor");
         _automaticUndo =
             serializedObject.FindProperty("_automaticUndo");
     }
@@ -75,6 +67,9 @@ public class NodeGraphGenerator_Editor : Editor
     {
         serializedObject.Update();
 
+        RefreshAgentSO();
+        _agentSO?.Update();
+
         DrawDetectionSection();
         EditorGUILayout.Space();
 
@@ -92,39 +87,43 @@ public class NodeGraphGenerator_Editor : Editor
 
         DrawGizmosSection();
 
+        _agentSO?.ApplyModifiedProperties();
+
         serializedObject.ApplyModifiedProperties();
     }
 
     void DrawDetectionSection()
     {
-        EditorGUILayout.LabelField(
-            "Detection Objects",
-            EditorStyles.boldLabel);
+        EditorGUILayout.LabelField
+            ("Detection Objects", EditorStyles.boldLabel);
 
         EditorGUILayout.PropertyField(
-            _viewRange,
-            new GUIContent("View Range"));
+            _viewRange, new GUIContent("View Range"));
 
-        DrawLayerField(
-            _obstacleMask,
-            "Obstacle Layers",
-            !_viewer.HasObstacleMask,
-            MessageType.Error,
-            "Required.");
+        if (_agentSO == null)
+        {
+            EditorGUILayout.HelpBox("Assign an Agent Config to configure layers.", MessageType.Warning);
+        }
+        else
+        {
+            DrawLayerField(
+                _agentObstacleMask,
+                "Obstacle Layers",
+                !_viewer.HasObstacleMask,
+                MessageType.Error,
+                "Required.");
 
-        EditorGUI.BeginDisabledGroup(
-            _ignoreWalkableFloor.boolValue);
+            EditorGUI.BeginDisabledGroup(_viewer.IgnoreWalkableFloor);
 
-        DrawLayerField(
-            _walkableMask,
-            "Walkable Layers",
-            !_viewer.IgnoreWalkableFloor &&
-            !_viewer.HasWalkableMask,
-            MessageType.Warning,
-            "Required unless Ignore Walkable Floor is enabled.");
+            DrawLayerField(
+                _agentWalkableMask,
+                "Walkable Layers",
+                !_viewer.IgnoreWalkableFloor && !_viewer.HasWalkableMask,
+                MessageType.Warning,
+                "Required unless Ignore Walkable Floor is enabled.");
 
-        EditorGUI.EndDisabledGroup();
-
+            EditorGUI.EndDisabledGroup();
+        }
 
         EditorGUILayout.HelpBox(
             "Convex MeshColliders are treated as regular obstacles.\n" +
@@ -134,19 +133,30 @@ public class NodeGraphGenerator_Editor : Editor
 
     void DrawAgentSection()
     {
-        EditorGUILayout.LabelField(
-            "Agent Settings",
-            EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Agent Settings", EditorStyles.boldLabel);
 
-        EditorGUILayout.PropertyField(
-            _agentHeight,
-            new GUIContent("Height"));
-
-        EditorGUILayout.PropertyField(
-            _agentRadius,
-            new GUIContent("Radius"));
+        EditorGUILayout.PropertyField(_agent, new GUIContent("Agent Config"));
     }
+    void RefreshAgentSO()
+    {
+        AgentConfig agentAsset = _viewer != null
+            ? (AgentConfig)_agent.objectReferenceValue : null;
 
+        if (agentAsset == null)
+        {
+            _agentSO = null;
+            _agentObstacleMask = null;
+            _agentWalkableMask = null;
+            return;
+        }
+
+        if (_agentSO == null || _agentSO.targetObject != agentAsset)
+        {
+            _agentSO = new SerializedObject(agentAsset);
+            _agentObstacleMask = _agentSO.FindProperty("ObstacleMask");
+            _agentWalkableMask = _agentSO.FindProperty("WalkableMask");
+        }
+    }
     void DrawNodePrefab()
     {
         EditorGUILayout.PropertyField(
@@ -177,10 +187,6 @@ public class NodeGraphGenerator_Editor : Editor
             0f,
             180f,
             new GUIContent("Min Corner Angle"));
-
-        EditorGUILayout.PropertyField(
-            _ignoreWalkableFloor,
-            new GUIContent("Ignore Walkable Floor"));
     }
 
     void DrawLayerField(

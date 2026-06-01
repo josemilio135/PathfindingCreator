@@ -23,23 +23,10 @@ using UnityEngine;
 /// </summary>
 public class NodeGraphGenerator : MonoBehaviour
 {
-    [Tooltip("Layers used to detect the outline of these colliders and generate traversable nodes")]
-    [SerializeField] LayerMask _obstacleMask;
-
-    [Tooltip("Layers considered valid walkable ground surfaces used to snap nodes to the floor.")]
-    [SerializeField] LayerMask _walkableMask;
-
-    [Tooltip("Allows baking without requiring walkable floor layers.")]
-    [SerializeField] bool _ignoreWalkableFloor = false;
+    [SerializeField] AgentConfig _agent;
 
     [Tooltip("Detection radius used to search for nearby colliders and evaluate their corners.")]
     [SerializeField, Min(0f)] float _viewRange = 15f;
-
-    [Tooltip("Vertical space required for the agent to fit and move.")]
-    [SerializeField, Min(0.1f)] float _agentHeight = 2f;
-
-    [Tooltip("Horizontal collision size used for clearance checks and corner offset.")]
-    [SerializeField, Min(0.05f)] float _agentRadius = 0.4f;
 
     [Tooltip("Prefab instantiated for every generated node.")]
     [SerializeField] BaseNode _nodePrefab;
@@ -64,13 +51,12 @@ public class NodeGraphGenerator : MonoBehaviour
     public float ViewRange => _viewRange;
     public float NodeMergeDistance => _nodeMergeDistance;
     public bool IsClean => _lastGeneratedContainer == null;
-    public float AgentRadius => _agentRadius;
-    public float AgentHeight => _agentHeight;
-    public bool IgnoreWalkableFloor => _ignoreWalkableFloor;
-    public bool HasObstacleMask => _obstacleMask.value != 0;
-    public bool HasWalkableMask => _walkableMask.value != 0;
-    public bool CanBake => HasObstacleMask && (_ignoreWalkableFloor || HasWalkableMask);
-
+    public float AgentRadius => _agent != null ? _agent.Radius : 0f;
+    public float AgentHeight => _agent != null ? _agent.Height : 0f;
+    public bool HasObstacleMask => _agent != null && _agent.ObstacleMask.value != 0;
+    public bool HasWalkableMask => _agent != null && _agent.WalkableMask.value != 0;
+    public bool IgnoreWalkableFloor => _agent != null && _agent.IgnoreWalkableFloor;
+    public bool CanBake => _agent != null && HasObstacleMask && (_agent.IgnoreWalkableFloor || HasWalkableMask);
     #endregion
 
     Transform _lastGeneratedContainer;
@@ -103,9 +89,8 @@ public class NodeGraphGenerator : MonoBehaviour
 
         List<Vector3> nodes = NodeGraphBake.GenerateGraph(
             transform.position,
-            _viewRange, _agentRadius, _agentHeight,
-            _roundColliderPrecision, _nodeMergeDistance,
-            _obstacleMask, _walkableMask);
+            _viewRange, _agent,
+            _roundColliderPrecision, _nodeMergeDistance);
 
         InstantiateNodes(nodes);
 
@@ -142,14 +127,13 @@ public class NodeGraphGenerator : MonoBehaviour
     /// </summary>
     public IEnumerable<Vector3> GetVisibleCorners()
     {
+        if (_agent == null) return System.Array.Empty<Vector3>();
+
         return NodeSampler.GetVisibleNodes(
             transform.position,
             _viewRange,
-            _agentRadius,
-            _agentHeight,
-            _roundColliderPrecision,
-            _obstacleMask,
-            _walkableMask);
+            _agent,
+            _roundColliderPrecision);
     }
     /// <summary>
     /// Returns merged corner positions after distance-based cleanup.
@@ -157,6 +141,8 @@ public class NodeGraphGenerator : MonoBehaviour
     /// </summary>
     public List<Vector3> GetMergedCorners()
     {
+        if (_agent == null) return new List<Vector3>();
+
         return NodeSampler.MergeNearbyNodes(
             GetVisibleCorners(),
             _nodeMergeDistance);
@@ -187,9 +173,7 @@ public class NodeGraphGenerator : MonoBehaviour
         NodesContainer container =
             gameObj.AddComponent<NodesContainer>();
 
-        container.AgentRadius = _agentRadius;
-        container.AgentHeight = _agentHeight;
-        container.ObstacleMask = _obstacleMask;
+        container.Agent = _agent;
 
         _lastGeneratedContainer = gameObj.transform;
 

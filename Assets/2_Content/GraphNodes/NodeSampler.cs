@@ -16,14 +16,11 @@ public static class NodeSampler
     public static IEnumerable<Vector3> GetVisibleNodes(
         Vector3 origin,
         float viewRange,
-        float agentRadius,
-        float agentHeight,
-        int curvedPrecision,
-        LayerMask obstacleMask,
-        LayerMask walkableMask)
+        AgentConfig agent,
+        int curvedPrecision)
     {
         if (!AgentPhysics.TryGetGroundBelow(
-            origin + Vector3.up * 5f, 100f, walkableMask,
+            origin + Vector3.up * 5f, 100f, agent.WalkableMask,
             out Vector3 groundPoint))
             yield break;
 
@@ -31,16 +28,16 @@ public static class NodeSampler
         // Vector3 eyeOrigin = groundPoint + Vector3.up * (agentHeight * 0.5f);
 
         int count = Physics.OverlapSphereNonAlloc(
-          //eyeOrigin,
+            //eyeOrigin,
             groundPoint,
             viewRange,
-            _overlapBuffer, obstacleMask, QueryTriggerInteraction.Ignore);
+            _overlapBuffer, agent.ObstacleMask, QueryTriggerInteraction.Ignore);
 
         for (int i = 0; i < count; i++)
         {
             Collider obstacle = _overlapBuffer[i];
 
-            if (!AgentPhysics.ColliderBlocksAgent(obstacle, agentBottom, agentHeight))
+            if (!AgentPhysics.ColliderBlocksAgent(obstacle, agentBottom, agent.Height))
                 continue;
 
             IEnumerable<Vector3> candidates;
@@ -48,16 +45,12 @@ public static class NodeSampler
             if (obstacle is MeshCollider { convex: false } meshCollider)
             {
                 candidates = WaypointSampler.SampleArchitectureCorners(
-                    meshCollider,
-                    agentBottom, agentRadius, agentHeight,
-                    obstacleMask, walkableMask);
+                    meshCollider, agentBottom, agent);
             }
             else
             {
                 candidates = WaypointSampler.SampleObstacleCorners(
-                    obstacle,
-                    agentBottom, agentRadius, agentHeight,
-                    curvedPrecision, obstacleMask, walkableMask);
+                    obstacle, agentBottom, agent, curvedPrecision);
             }
 
             foreach (Vector3 node in candidates)
@@ -68,7 +61,7 @@ public static class NodeSampler
                 //     yield return node;
 
                 if (Perception.HasLineOfSight_Capsule(
-                   groundPoint, node, agentRadius, agentHeight, obstacleMask))
+                   groundPoint, node, agent.Radius, agent.Height, agent.ObstacleMask))
                 {
                     yield return node;
                 }

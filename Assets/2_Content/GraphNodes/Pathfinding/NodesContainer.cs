@@ -4,10 +4,7 @@ using UnityEngine;
 public class NodesContainer : MonoBehaviour
 {
     [Header("LOS")]
-    [SerializeField] float _agentRadius;
-    [SerializeField] float _agentHeight;
-
-    [SerializeField] LayerMask _obstacleMask;
+    [SerializeField] AgentConfig _agent;
     [SerializeField] List<BaseNode> _nodes = new();
 
     public List<BaseNode> Nodes
@@ -15,20 +12,10 @@ public class NodesContainer : MonoBehaviour
         get => _nodes;
         set => _nodes = value;
     }
-    public float AgentRadius
+    public AgentConfig Agent
     {
-        get => _agentRadius;
-        set => _agentRadius = value;
-    }
-    public float AgentHeight
-    {
-        get => _agentHeight;
-        set => _agentHeight = value;
-    }
-    public LayerMask ObstacleMask
-    {
-        get => _obstacleMask;
-        set => _obstacleMask = value;
+        get => _agent;
+        set => _agent = value;
     }
 
     public void Reset()
@@ -65,7 +52,7 @@ public class NodesContainer : MonoBehaviour
                 bool hasLOS =
                      Perception.HasLineOfSight_Capsule(
                         currentNode.Position, otherNode.Position,
-                        _agentRadius, _agentHeight, _obstacleMask);
+                        _agent.Radius, _agent.Height, _agent.ObstacleMask);
 
                 if (hasLOS) currentNode.AddNeighbor(otherNode);
             }
@@ -125,10 +112,21 @@ public class NodesContainer : MonoBehaviour
 
     [SerializeField] bool _drawAgentCapsules = true;
     [SerializeField] bool _drawConnections = true;
-
+    bool _missingAgentWarningShown;
     void OnDrawGizmosSelected()
     {
         if (_nodes == null) return;
+        if (_agent == null && (_drawAgentCapsules || _drawConnections))
+        {
+            if (!_missingAgentWarningShown)
+            {
+                Debug.LogWarning($"{name}: Cannot show debug because Agent is missing.");
+                _missingAgentWarningShown = true;
+            }
+            return;
+        }
+        _missingAgentWarningShown = false;
+
 
         foreach (var node in _nodes)
         {
@@ -145,35 +143,35 @@ public class NodesContainer : MonoBehaviour
                 if (neighbour == null) continue;
 
                 Gizmos.DrawLine(
-                    node.Position + Vector3.up * (_agentHeight * 0.5f),
-                    neighbour.Position + Vector3.up * (_agentHeight * 0.5f));
+                    node.Position + Vector3.up * (_agent.Height * 0.5f),
+                    neighbour.Position + Vector3.up * (_agent.Height * 0.5f));
             }
         }
         void DrawCapsule(Vector3 position)
         {
             Gizmos.color = Color.cyan;
 
-            Vector3 bottom = position + Vector3.up * _agentRadius;
-            Vector3 top = position + Vector3.up * (_agentHeight - _agentRadius);
+            Vector3 bottom = position + Vector3.up * _agent.Radius;
+            Vector3 top = position + Vector3.up * (_agent.Height - _agent.Radius);
 
-            Gizmos.DrawWireSphere(bottom, _agentRadius);
-            Gizmos.DrawWireSphere(top, _agentRadius);
-
-            Gizmos.DrawLine(
-                bottom + Vector3.forward * _agentRadius,
-                top + Vector3.forward * _agentRadius);
+            Gizmos.DrawWireSphere(bottom, _agent.Radius);
+            Gizmos.DrawWireSphere(top, _agent.Radius);
 
             Gizmos.DrawLine(
-                bottom - Vector3.forward * _agentRadius,
-                top - Vector3.forward * _agentRadius);
+                bottom + Vector3.forward * _agent.Radius,
+                top + Vector3.forward * _agent.Radius);
 
             Gizmos.DrawLine(
-                bottom + Vector3.right * _agentRadius,
-                top + Vector3.right * _agentRadius);
+                bottom - Vector3.forward * _agent.Radius,
+                top - Vector3.forward * _agent.Radius);
 
             Gizmos.DrawLine(
-                bottom - Vector3.right * _agentRadius,
-                top - Vector3.right * _agentRadius);
+                bottom + Vector3.right * _agent.Radius,
+                top + Vector3.right * _agent.Radius);
+
+            Gizmos.DrawLine(
+                bottom - Vector3.right * _agent.Radius,
+                top - Vector3.right * _agent.Radius);
         }
     }
 #endif

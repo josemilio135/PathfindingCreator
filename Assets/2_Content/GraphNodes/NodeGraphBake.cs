@@ -16,12 +16,9 @@ public static class NodeGraphBake
     public static List<Vector3> GenerateGraph(
     Vector3 seedPosition,
         float viewRange,
-        float agentRadius,
-        float agentHeight,
+        AgentConfig agent,
         int curvedPrecision,
-        float mergeDistance,
-        LayerMask obstacleMask,
-        LayerMask walkableMask)
+        float mergeDistance)
     {
         Queue<Vector3> frontier = new();
         List<Vector3> nodesGraph = new();
@@ -35,9 +32,8 @@ public static class NodeGraphBake
             IEnumerable<Vector3> visibleNodes =
                  NodeSampler.GetVisibleNodes(
                      currentNode, viewRange,
-                     agentRadius, agentHeight,
-                     curvedPrecision,
-                     obstacleMask, walkableMask);
+                     agent,
+                     curvedPrecision);
 
             List<Vector3> mergedNodes =
                 NodeSampler.MergeNearbyNodes(visibleNodes, mergeDistance);
