@@ -93,6 +93,31 @@ public class NodesContainer : MonoBehaviour
         return closest;
     }
 
+    public BaseNode FindBestNodeForTarget(
+        Vector3 targetPosition, LayerMask obstacleMask, float agentRadius, float agentHeight)
+    {
+        BaseNode best = null;
+        float bestScore = float.MaxValue;
+
+        foreach (var node in _nodes)
+        {
+            if (node == null) continue;
+
+            bool hasLOS = Perception.HasLineOfSight_Capsule(
+                node.Position, targetPosition,
+                agentRadius, agentHeight, obstacleMask);
+
+            if (!hasLOS) continue;
+
+            float score = Vector3.SqrMagnitude(node.Position - targetPosition);
+            if (score >= bestScore) continue;
+
+            bestScore = score;
+            best = node;
+        }
+
+        return best ?? FindClosestNode(targetPosition);
+    }
 
 
 

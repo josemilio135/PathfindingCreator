@@ -29,5 +29,6 @@ public abstract class BaseNode : MonoBehaviour
 
         if (!_neighbors.Contains(node)) _neighbors.Add(node);
     }
+    public void RemoveNeighbor(BaseNode node) => _neighbors.Remove(node);
     public void ClearNeighboirs() => _neighbors.Clear();
 }

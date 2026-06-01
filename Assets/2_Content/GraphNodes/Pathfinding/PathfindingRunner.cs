@@ -15,6 +15,12 @@ public class PathfindingRunner : MonoBehaviour
 
     [SerializeField] SolverType solverType = SolverType.AStar;
     [SerializeField] NodesContainer nodesContainer;
+    public NodesContainer Container => nodesContainer;
+    public SolverType CurrentSolverType
+    {
+        get => solverType;
+        set => solverType = value;
+    }
 
     [SerializeField] public LayerMask _obstacleMask;
 
@@ -26,7 +32,7 @@ public class PathfindingRunner : MonoBehaviour
 
     IPathfindingSolver CreateSolver()
     {
-        return solverType switch
+        return CurrentSolverType switch
         {
             SolverType.DFS => new DFSSolver(),
             SolverType.BFS => new BFSSolver(),
@@ -35,25 +41,26 @@ public class PathfindingRunner : MonoBehaviour
             SolverType.ThetaStar => new ThetaStarSolver(_obstacleMask, _agentRadius, _agentHeight),
             SolverType.ThetaStarSmooth => new ThetaStarSmoothSolver(_obstacleMask, _agentRadius, _agentHeight),
 
-            _ => new DijkstraSolver()
+            _ => new AStarSolver()
         };
     }
+
     public List<T> FindPath<T>(Vector3 startPosition, Vector3 targetPosition) where T : BaseNode
     {
-        BaseNode startNode =
-            nodesContainer.FindClosestNode(startPosition);
-
-        BaseNode endNode =
-            nodesContainer.FindClosestNode(targetPosition);
+        BaseNode startNode = nodesContainer.FindClosestNode(startPosition);
+        BaseNode endNode = nodesContainer.FindClosestNode(targetPosition);
 
         if (startNode == null || endNode == null) return null;
 
         IPathfindingSolver solver = CreateSolver();
+
         solver.Solve(startNode, endNode, nodesContainer);
 
-        List<T> result = new List<T>(solver.Path.Count);
+        if (solver.Path == null || solver.Path.Count == 0) return null;
 
-        foreach (var node in solver.Path)
+        List<T> result = new(solver.Path.Count);
+
+        foreach (BaseNode node in solver.Path)
         {
             if (node is T typed) result.Add(typed);
         }

@@ -8,7 +8,7 @@ public class Hunter : MonoBehaviour
 
     [Header("Patrol")]
     [SerializeField] PathfindingRunner _runner;
-    [SerializeField] Transform _waypointsRoot;
+    [SerializeField] WaypointNode[] _waypoints;
     [SerializeField] bool _pingPong = true;
 
 
@@ -36,60 +36,49 @@ public class Hunter : MonoBehaviour
     [SerializeField] Color _viewAngleColor = Color.blue;
     [SerializeField] Color _lodColor = Color.green;
     [SerializeField] Color _pathColor = Color.white;
+    [SerializeField] Color _targetNodeColor = Color.blue;
 
     bool _isInRange;
     bool _isInsideAngle;
     bool _canSeeTarget;
 
-    bool _walkingToWaypoint = false;
-
-    List<NavNode> _currentPath = new();
-    List<Transform> _waypoints = new();
-    NavNode _currentTargetNode;
-    int _currentNodeIndex;
+    List<BaseNode> _currentPath = new();
+    int _currentIndex;
     int _waypointIndex = 0;
     int _waypointDir = 1;
 
     void Start()
     {
-        BuildWaypoints();
-        if (_waypoints.Count > 0) CalculatePath();
+        if (_waypoints.Length > 0) CalculatePath();
     }
-    void BuildWaypoints()
-    {
-        _waypoints.Clear();
-        if (_waypointsRoot == null) return;
-        foreach (Transform child in _waypointsRoot) _waypoints.Add(child);
-    }
-    void SetTargetNode(NavNode node)
-    {
-        _currentTargetNode?.RemoveTarget(); // <-- visual
-        _currentTargetNode = node;
-        _currentTargetNode?.AddTarget();    // <-- visual
-    }
+
     void CalculatePath()
     {
-        if (_waypoints.Count == 0) return;
+        if (_waypoints.Length == 0) return;
 
-        SetTargetNode(null);
-        _walkingToWaypoint = false;
+        WaypointNode destination = _waypoints[_waypointIndex];
 
-        Vector3 start = transform.position;
-        Vector3 end = _waypoints[_waypointIndex].position;
-
-        _currentPath = _runner.FindPath<NavNode>(start, end);
-        _currentNodeIndex = 0;
+        destination.Connect(_runner.Container);
+        _currentPath = _runner.FindPath<BaseNode>(transform.position, destination.Position);
+        _currentIndex = 0;
     }
+
+    public void SetDestination(Vector3 destination)
+    {
+        _currentPath = _runner.FindPath<BaseNode>(transform.position, destination);
+        _currentIndex = 0;
+    }
+
     void NextWaypoint()
     {
         if (_pingPong)
         {
             _waypointIndex += _waypointDir;
 
-            if (_waypointIndex >= _waypoints.Count)
+            if (_waypointIndex >= _waypoints.Length)
             {
                 _waypointDir = -1;
-                _waypointIndex = _waypoints.Count - 2;
+                _waypointIndex = _waypoints.Length - 2;
             }
             else if (_waypointIndex < 0)
             {
@@ -97,39 +86,23 @@ public class Hunter : MonoBehaviour
                 _waypointIndex = 1;
             }
         }
-        else _waypointIndex = (_waypointIndex + 1) % _waypoints.Count;
+        else _waypointIndex = (_waypointIndex + 1) % _waypoints.Length;
 
         CalculatePath();
     }
+
     void FollowPath()
     {
         if (_currentPath == null || _currentPath.Count == 0) return;
 
-        if (_walkingToWaypoint)
+        if (_currentIndex >= _currentPath.Count)
         {
-            Vector3 waypointPos = _waypoints[_waypointIndex].position;
-            if (MoveTowards(waypointPos, nodeReachDistance))
-            {
-                _walkingToWaypoint = false;
-                NextWaypoint();
-            }
+            NextWaypoint();
             return;
         }
 
-        if (_currentNodeIndex >= _currentPath.Count)
-        {
-            _walkingToWaypoint = true;
-            return;
-        }
-
-        NavNode targetNode = _currentPath[_currentNodeIndex];
-        if (targetNode != _currentTargetNode) SetTargetNode(targetNode);
-
-        if (MoveTowards(targetNode.Position, nodeReachDistance))
-        {
-            SetTargetNode(null);
-            _currentNodeIndex++;
-        }
+        if (MoveTowards(_currentPath[_currentIndex].Position, nodeReachDistance))
+            _currentIndex++;
     }
 
     void Update()
@@ -165,11 +138,11 @@ public class Hunter : MonoBehaviour
     }
     bool MoveTowards(Vector3 target, float stoppingDistance)
     {
-        float distance = Vector3.Distance(transform.position, target);
+        Vector3 flat = new(target.x, transform.position.y, target.z);
+        float distance = Vector3.Distance(transform.position, flat);
         if (distance <= stoppingDistance) return true;
 
-        Vector3 direction = (target - transform.position).normalized;
-        direction.y = 0f;
+        Vector3 direction = (flat - transform.position).normalized;
 
         if (direction != Vector3.zero)
         {
@@ -182,65 +155,49 @@ public class Hunter : MonoBehaviour
         return false;
     }
 
-    void OnDestroy()
-    {
-        SetTargetNode(null);
-    }
+
     #region Gizmos
     void OnDrawGizmos()
     {
-        Vector3 eyesPosition =
-            transform.position + _eyesOffset;
+        Vector3 eyes = transform.position + _eyesOffset;
 
         if (_drawVisionRange)
         {
             Gizmos.color = _isInRange ? _rangeColor : Color.gray;
+            Gizmos.DrawWireSphere(eyes, _viewRange);
 
-            Gizmos.DrawWireSphere(
-                eyesPosition, _viewRange);
-
-            Vector3 leftBoundary =
-                Quaternion.Euler(
-                    0f, -_fovAngle * 0.5f, 0f) * transform.forward;
-
-            Vector3 rightBoundary =
-                Quaternion.Euler(
-                    0f, _fovAngle * 0.5f, 0f) * transform.forward;
-
-            Gizmos.color =
-                _isInsideAngle ? _viewAngleColor : Color.gray;
-
-            Gizmos.DrawRay(
-                eyesPosition, leftBoundary * _viewRange);
-
-            Gizmos.DrawRay(
-                eyesPosition, rightBoundary * _viewRange);
+            Vector3 left = Quaternion.Euler(0f, -_fovAngle * 0.5f, 0f) * transform.forward;
+            Vector3 right = Quaternion.Euler(0f, _fovAngle * 0.5f, 0f) * transform.forward;
+            Gizmos.color = _isInsideAngle ? _viewAngleColor : Color.gray;
+            Gizmos.DrawRay(eyes, left * _viewRange);
+            Gizmos.DrawRay(eyes, right * _viewRange);
         }
 
         if (_drawVisionRay && _target != null)
         {
-            Vector3 targetPosition =
-                _target.position + _eyesOffset;
+            Gizmos.color = _canSeeTarget ? _lodColor : Color.gray;
+            Gizmos.DrawLine(eyes, _target.position + _eyesOffset);
+        }
 
-            Gizmos.color =
-                _canSeeTarget ? _lodColor : Color.gray;
+        //Pathfinding
+        if (_drawPath && _currentPath != null && _currentPath.Count > 0)
+        {
+            Gizmos.color = _pathColor;
+            for (int i = 0; i < _currentPath.Count - 1; i++)
+                Gizmos.DrawLine(_currentPath[i].Position, _currentPath[i + 1].Position);
 
-            Gizmos.DrawLine(
-                eyesPosition, targetPosition);
+            for (int i = 0; i < _currentPath.Count; i++)
+                Gizmos.DrawSphere(_currentPath[i].Position, 0.25f);
+
+            if (_currentIndex < _currentPath.Count)
+            {
+                Gizmos.color = _targetNodeColor;
+                Gizmos.DrawSphere(_currentPath[_currentIndex].Position, 0.5f);
+            }
         }
 
         Gizmos.color = Color.white;
-        Gizmos.DrawSphere(eyesPosition, 0.1f);
-
-
-        if (_drawPath && _currentPath != null && _currentPath.Count > 1)
-        {
-            Gizmos.color = _pathColor;
-            for (int i = _currentNodeIndex; i < _currentPath.Count - 1; i++)
-            {
-                Gizmos.DrawLine(_currentPath[i].Position, _currentPath[i + 1].Position);
-            }
-        }
+        Gizmos.DrawSphere(eyes, 0.1f);
     }
     #endregion
 }
