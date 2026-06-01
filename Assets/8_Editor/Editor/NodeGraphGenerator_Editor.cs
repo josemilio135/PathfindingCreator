@@ -147,8 +147,8 @@ public class NodeGraphGenerator_Editor : Editor
     void CreateAgentConfig()
     {
         AgentConfig asset =
-            ScriptableAssetUtility.CreateAssetNextToScript<AgentConfig>(
-                _viewer, "AgentConfig");
+         ScriptableAssetUtility.
+         CreateAsset<AgentConfig>("AgentConfig", ScriptableAssetUtility.CreateLocation.SelectedFolder);
 
         _agent.objectReferenceValue = asset;
         serializedObject.ApplyModifiedProperties();

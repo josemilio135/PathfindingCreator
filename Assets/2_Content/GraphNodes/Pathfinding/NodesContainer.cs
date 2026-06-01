@@ -135,21 +135,19 @@ public class NodesContainer : MonoBehaviour
 
 
 #if UNITY_EDITOR
-    bool _missingAgentWarningShown;
+
+    void OnValidate()
+    {
+        if (_agent != null) return;
+
+        _drawAgentCapsules = false;
+        _drawConnections = false;
+    }
+
     void OnDrawGizmosSelected()
     {
+        if (_agent == null) return;
         if (_nodes == null) return;
-        if (_agent == null && (_drawAgentCapsules || _drawConnections))
-        {
-            if (!_missingAgentWarningShown)
-            {
-                Debug.LogWarning($"{name}: Cannot show debug because Agent is missing.");
-                _missingAgentWarningShown = true;
-            }
-            return;
-        }
-        _missingAgentWarningShown = false;
-
 
         foreach (var node in _nodes)
         {

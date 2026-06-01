@@ -87,8 +87,8 @@ public class NodesContainer_Editor : Editor
         NodesContainer container = (NodesContainer)target;
 
         AgentConfig asset =
-            ScriptableAssetUtility
-            .CreateAssetNextToScript<AgentConfig>(container, "AgentConfig");
+            ScriptableAssetUtility.
+            CreateAsset<AgentConfig>("AgentConfig", ScriptableAssetUtility.CreateLocation.SelectedFolder);
 
         _agent.objectReferenceValue = asset;
 

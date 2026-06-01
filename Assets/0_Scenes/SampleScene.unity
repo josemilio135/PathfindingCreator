@@ -22678,8 +22678,8 @@ MonoBehaviour:
   - {fileID: 1610357333}
   - {fileID: 1851454023}
   - {fileID: 1510528496}
-  _drawAgentCapsules: 1
-  _drawConnections: 1
+  _drawAgentCapsules: 0
+  _drawConnections: 0
 --- !u!4 &1645126884
 Transform:
   m_ObjectHideFlags: 0
