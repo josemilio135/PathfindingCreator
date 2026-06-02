@@ -1,5 +1,4 @@
-﻿// AgentRunner.cs
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(PathfindingRunner))]
@@ -13,17 +12,20 @@ public abstract class AgentRunner : MonoBehaviour
     PathfindingRunner _pathfinding;
     List<BaseNode> _currentPath = new();
     int _currentIndex;
-    WaypointNode _tempNode;
+
+    WaypointNode _tempStart;
+    WaypointNode _tempEnd;
 
     protected virtual void Awake()
     {
         _pathfinding = GetComponent<PathfindingRunner>();
-        _tempNode = CreateTempNode();
+        _tempStart = CreateTempNode("Start");
+        _tempEnd = CreateTempNode("End");
     }
 
-    WaypointNode CreateTempNode()
+    WaypointNode CreateTempNode(string label)
     {
-        GameObject go = new($"[TempNode_{name}]");
+        GameObject go = new($"[TempNode_{name}_{label}]");
         WaypointNode node = go.AddComponent<WaypointNode>();
         go.SetActive(false);
         return node;
@@ -31,15 +33,23 @@ public abstract class AgentRunner : MonoBehaviour
 
     public void SetDestination(Vector3 destination)
     {
-        _tempNode.transform.position = destination;
-        _tempNode.gameObject.SetActive(true);
-        _tempNode.Connect(_pathfinding.Container);
+        _tempStart.transform.position = transform.position;
+        _tempEnd.transform.position = destination;
+
+        _tempStart.gameObject.SetActive(true);
+        _tempEnd.gameObject.SetActive(true);
+
+        _tempStart.Connect(_pathfinding.Container);
+        _tempEnd.Connect(_pathfinding.Container);
 
         _currentPath = _pathfinding.FindPath<BaseNode>(transform.position, destination);
         _currentIndex = 0;
 
-        _tempNode.Disconnect(_pathfinding.Container);
-        _tempNode.gameObject.SetActive(false);
+        _tempStart.Disconnect(_pathfinding.Container);
+        _tempEnd.Disconnect(_pathfinding.Container);
+
+        _tempStart.gameObject.SetActive(false);
+        _tempEnd.gameObject.SetActive(false);
     }
 
     protected void FollowPath()
