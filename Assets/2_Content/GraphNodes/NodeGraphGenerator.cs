@@ -44,54 +44,50 @@ public class NodeGraphGenerator : MonoBehaviour
     [SerializeField, Range(0f, 180f)] float _minCornerAngle = 10f;
 
     [Tooltip("Automatically removes the previous baked node container before baking again.")]
-    [SerializeField] bool _automaticUndo = false;
+    [SerializeField] NodesContainer _targetContainer;
 
     #region Editor Info 
     //Read-only values exposed for the custom editor and debug visualization.
     public float ViewRange => _viewRange;
     public float NodeMergeDistance => _nodeMergeDistance;
-    public bool IsClean => _lastGeneratedContainer == null;
+    public bool IsClean => _targetContainer == null;
     public float AgentRadius => _agent != null ? _agent.Radius : 0f;
     public float AgentHeight => _agent != null ? _agent.Height : 0f;
     public bool HasObstacleMask => _agent != null && _agent.ObstacleMask.value != 0;
     public bool HasWalkableMask => _agent != null && _agent.WalkableMask.value != 0;
     public bool IgnoreWalkableFloor => _agent != null && _agent.IgnoreWalkableFloor;
 
-    public bool CanBake => 
-        _agent != null 
+    public bool CanBake =>
+        _agent != null
         && _nodePrefab != null
-        && HasObstacleMask 
+        && HasObstacleMask
         && (_agent.IgnoreWalkableFloor || HasWalkableMask);
 
     #endregion
 
-    Transform _lastGeneratedContainer;
+
 
     /// <summary>
-    /// Generates nodes only from nearby colliders currently visible
-    /// inside the local detection range.
+    /// Bakes nodes only from colliders visible within the local detection range.
+    /// Reuses the existing container if one already exists.
     /// </summary>
     public void BakeOnlyThisNodes()
     {
         if (!ValidatePrefab()) return;
-        if (_automaticUndo) UndoLastBake();
 
         List<Vector3> nodes = GetMergedCorners();
-
         InstantiateNodes(nodes);
 
-        Debug.Log($"{name}: Local node bake completed. Generated {nodes.Count} nodes.");
+        Debug.Log($"{name}: Local bake completed. Generated {nodes.Count} nodes.");
     }
 
     /// <summary>
-    /// Generates a full node graph for the surrounding area 
-    /// using the global graph baking system.
+    /// Bakes a full node graph for the surrounding area using BFS expansion.
+    /// Reuses the existing container if one already exists.
     /// </summary>
     public void BakeAllNodes()
     {
         if (!ValidatePrefab()) return;
-        if (_automaticUndo) UndoLastBake();
-
 
         List<Vector3> nodes = NodeGraphBake.GenerateGraph(
             transform.position,
@@ -100,36 +96,40 @@ public class NodeGraphGenerator : MonoBehaviour
 
         InstantiateNodes(nodes);
 
-        Debug.Log($"{name}: Full area node bake completed. Generated {nodes.Count} nodes.");
+        Debug.Log($"{name}: Full bake completed. Generated {nodes.Count} nodes.");
     }
 
     /// <summary>
-    /// Removes the last generated node container from the scene.
+    /// Creates a new empty container and sets it as the active one.
+    /// The previous container remains in the scene untouched,
+    /// preserving any external references to it.
     /// </summary>
-    public void UndoLastBake()
+    public void NewContainer()
     {
-        if (_lastGeneratedContainer == null)
+        _targetContainer = null;
+        InstantiateNodes(new List<Vector3>());
+
+        Debug.Log($"{name}: New container created.");
+    }
+
+    /// <summary>
+    /// Clears all nodes from the current container without destroying it.
+    /// External references to the container remain valid.
+    /// </summary>
+    public void ClearContainer()
+    {
+        if (_targetContainer == null)
         {
-            Debug.Log($"{name}: No baked node container to remove.");
+            Debug.Log($"{name}: No container to clear.");
             return;
         }
-
-        string containerName = _lastGeneratedContainer.name;
-
-#if UNITY_EDITOR
-        DestroyImmediate(_lastGeneratedContainer.gameObject);
-#else
-        Destroy(_lastGeneratedContainer.gameObject);
-#endif
-
-        _lastGeneratedContainer = null;
-
-        Debug.Log($"{name}: Removed baked node container '{containerName}'.");
+        ClearContainerNodes(_targetContainer);
+        Debug.Log($"{name}: Container cleared.");
     }
 
     /// <summary>
     /// Returns all detected visible corner positions before merge processing.
-    /// Mainly used for editor visualization and debugging.
+    /// Used for editor visualization and debugging.
     /// </summary>
     public IEnumerable<Vector3> GetVisibleCorners()
     {
@@ -141,6 +141,7 @@ public class NodeGraphGenerator : MonoBehaviour
             _agent,
             _roundColliderPrecision);
     }
+
     /// <summary>
     /// Returns merged corner positions after distance-based cleanup.
     /// Used as the final waypoint positions before node instantiation.
@@ -153,9 +154,15 @@ public class NodeGraphGenerator : MonoBehaviour
             GetVisibleCorners(),
             _nodeMergeDistance);
     }
+
+    /// <summary>
+    /// Clears the given container and repopulates it with nodes at the given positions.
+    /// Creates a new container if none exists yet.
+    /// </summary>
     void InstantiateNodes(List<Vector3> points)
     {
-        NodesContainer container = CreateNodeContainer();
+        NodesContainer container = GetOrCreateContainer();
+        ClearContainerNodes(container);
 
         for (int i = 0; i < points.Count; i++)
         {
@@ -165,25 +172,45 @@ public class NodeGraphGenerator : MonoBehaviour
                 .InstantiatePrefab(_nodePrefab, container.transform);
 
             container.Nodes.Add(node);
-#endif
             node.transform.position = points[i];
+#endif
         }
 
         container.BuildNeighbors();
     }
 
-    NodesContainer CreateNodeContainer()
+    /// <summary>
+    /// Returns the existing active container, or creates a new one if none exists.
+    /// </summary>
+    NodesContainer GetOrCreateContainer()
     {
-        GameObject gameObj = new($"NODES_CONTAINER");
+        if (_targetContainer != null) return _targetContainer;
 
-        NodesContainer container =
-            gameObj.AddComponent<NodesContainer>();
-
+        GameObject go = new("NODES_CONTAINER");
+        NodesContainer container = go.AddComponent<NodesContainer>();
         container.Agent = _agent;
-
-        _lastGeneratedContainer = gameObj.transform;
+        _targetContainer = container;
 
         return container;
+    }
+
+    /// <summary>
+    /// Destroys all child node GameObjects and clears the node list
+    /// without destroying the container itself.
+    /// </summary>
+    void ClearContainerNodes(NodesContainer container)
+    {
+        if (container == null) return;
+
+        for (int i = container.transform.childCount - 1; i >= 0; i--)
+        {
+#if UNITY_EDITOR
+            DestroyImmediate(container.transform.GetChild(i).gameObject);
+#else
+            Destroy(container.transform.GetChild(i).gameObject);
+#endif
+        }
+        container.Nodes.Clear();
     }
 
     bool ValidatePrefab()

@@ -18,8 +18,7 @@ public class NodeGraphGenerator_Editor : Editor
     SerializedProperty _nodeMergeDistance;
     SerializedProperty _extraOffset;
     SerializedProperty _minCornerAngle;
-
-    SerializedProperty _automaticUndo;
+    SerializedProperty _targetContainer;
 
     bool _showGizmos = true;
     bool _showAgentConfig = true;
@@ -47,8 +46,9 @@ public class NodeGraphGenerator_Editor : Editor
             serializedObject.FindProperty("_extraOffset");
         _minCornerAngle =
             serializedObject.FindProperty("_minCornerAngle");
-        _automaticUndo =
-            serializedObject.FindProperty("_automaticUndo");
+        _targetContainer =
+            serializedObject.FindProperty("_targetContainer");
+
     }
 
     void OnSceneGUI()
@@ -190,28 +190,46 @@ public class NodeGraphGenerator_Editor : Editor
     }
     void DrawBakeButtons()
     {
-        EditorGUILayout.LabelField("Bake Tools", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Container", EditorStyles.boldLabel);
+
+        EditorGUILayout.PropertyField(_targetContainer, new GUIContent("Target Container",
+            "Container where nodes will be baked. Assign an existing one or leave empty to create a new one."));
+
+        EditorGUILayout.BeginHorizontal();
+
+        EditorGUI.BeginDisabledGroup(_viewer.IsClean);
+        if (GUILayout.Button("Clear"))
+        {
+            Undo.RecordObject(_viewer, "Clear Container");
+            _viewer.ClearContainer();
+            EditorUtility.SetDirty(_viewer);
+        }
+        EditorGUI.EndDisabledGroup();
+
+        if (GUILayout.Button("New Container"))
+        {
+            Undo.RecordObject(_viewer, "New Container");
+            _viewer.NewContainer();
+            EditorUtility.SetDirty(_viewer);
+        }
+
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.Space();
 
         if (_agent.objectReferenceValue == null)
-        {
-            EditorGUILayout.HelpBox(
-                "Missing Agent Config.",
-                MessageType.Warning);
-        }
+            EditorGUILayout.HelpBox("Missing Agent Config.", MessageType.Warning);
 
         if (_nodePrefab.objectReferenceValue == null)
-        {
-            EditorGUILayout.HelpBox(
-                "Assign a Node Prefab before baking.",
-                MessageType.Warning);
-        }
+            EditorGUILayout.HelpBox("Assign a Node Prefab before baking.", MessageType.Warning);
+
+        EditorGUILayout.LabelField("Bake", EditorStyles.boldLabel);
 
         EditorGUI.BeginDisabledGroup(!_viewer.CanBake);
 
         if (GUILayout.Button("Bake Only This Nodes"))
         {
             Undo.RecordObject(_viewer, "Bake Only This Nodes");
-
             _viewer.BakeOnlyThisNodes();
             EditorUtility.SetDirty(_viewer);
         }
@@ -219,39 +237,12 @@ public class NodeGraphGenerator_Editor : Editor
         if (GUILayout.Button("Bake All Area Nodes"))
         {
             Undo.RecordObject(_viewer, "Bake All Area Nodes");
-
             _viewer.BakeAllNodes();
             EditorUtility.SetDirty(_viewer);
         }
 
         EditorGUI.EndDisabledGroup();
-
-        EditorGUILayout.BeginHorizontal();
-
-        EditorGUI.BeginDisabledGroup(_viewer.IsClean);
-
-        if (GUILayout.Button("Undo Last Bake"))
-        {
-            Undo.RecordObject(_viewer, "Undo Last Bake");
-
-            _viewer.UndoLastBake();
-            EditorUtility.SetDirty(_viewer);
-        }
-
-        EditorGUI.EndDisabledGroup();
-
-        EditorGUILayout.PropertyField(
-            _automaticUndo,
-            GUIContent.none,
-            GUILayout.Width(18f));
-
-        GUILayout.Label(
-            "Automatic Undo",
-            GUILayout.Width(110f));
-
-        EditorGUILayout.EndHorizontal();
     }
-
     void DrawGizmosSection()
     {
         _showGizmos =

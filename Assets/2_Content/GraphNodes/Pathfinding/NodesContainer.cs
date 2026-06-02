@@ -133,7 +133,6 @@ public class NodesContainer : MonoBehaviour
     }
 
 
-
 #if UNITY_EDITOR
 
     void OnValidate()
