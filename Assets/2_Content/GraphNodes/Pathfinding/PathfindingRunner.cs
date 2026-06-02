@@ -3,6 +3,9 @@ using UnityEngine;
 
 public class PathfindingRunner : MonoBehaviour
 {
+    [SerializeField] SolverType solverType = SolverType.AStar;
+    [SerializeField] NodesContainer nodesContainer;
+    public NodesContainer Container => nodesContainer;
     public enum SolverType
     {
         DFS,
@@ -12,19 +15,15 @@ public class PathfindingRunner : MonoBehaviour
         ThetaStar,
         ThetaStarSmooth
     }
-
-
-    [SerializeField] SolverType solverType = SolverType.AStar;
-    [SerializeField] NodesContainer nodesContainer;
-
-
-    public NodesContainer Container => nodesContainer;
-    AgentConfig _agent => Container.Agent;
     public SolverType CurrentSolverType
     {
         get => solverType;
         set => solverType = value;
     }
+    AgentConfig _agent => Container.Agent;
+
+    IPathfindingSolver _cachedSolver;
+    SolverType _cachedType;
 
     IPathfindingSolver CreateSolver()
     {
@@ -40,7 +39,15 @@ public class PathfindingRunner : MonoBehaviour
             _ => new AStarSolver()
         };
     }
+    IPathfindingSolver GetSolver()
+    {
+        if (_cachedSolver != null && _cachedType == CurrentSolverType)
+            return _cachedSolver;
 
+        _cachedSolver = CreateSolver();
+        _cachedType = CurrentSolverType;
+        return _cachedSolver;
+    }
     public List<T> FindPath<T>(Vector3 startPosition, Vector3 targetPosition) where T : BaseNode
     {
         BaseNode startNode = nodesContainer.FindClosestNode(startPosition);
@@ -48,7 +55,7 @@ public class PathfindingRunner : MonoBehaviour
 
         if (startNode == null || endNode == null) return null;
 
-        IPathfindingSolver solver = CreateSolver();
+        IPathfindingSolver solver = GetSolver();
 
         solver.Solve(startNode, endNode, nodesContainer);
 
@@ -63,7 +70,7 @@ public class PathfindingRunner : MonoBehaviour
 
         return result;
     }
+
+    public void SetContainer(NodesContainer container) => nodesContainer = container;
+
 }
-
-
-

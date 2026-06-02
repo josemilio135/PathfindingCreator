@@ -1,7 +1,6 @@
-using System.Collections.Generic;
 using UnityEngine;
 
-public class Hunter : AgentRunner
+public class Hunter : MonoBehaviour
 {
     [Header("Patrol")]
     [SerializeField] Transform _waypointsContainer;
@@ -22,13 +21,15 @@ public class Hunter : AgentRunner
     bool _isInsideAngle;
     bool _canSeeTarget;
 
+    AgentRunner _agent;
     Transform[] _waypoints;
     int _waypointIndex;
     int _waypointDir = 1;
 
-    protected override void Awake()
+    void Awake()
     {
-        base.Awake();
+        _agent = GetComponent<AgentRunner>();
+        _agent.OnDestinationReached += NextWaypoint;
 
         if (_waypointsContainer != null)
         {
@@ -46,16 +47,13 @@ public class Hunter : AgentRunner
 
     void Update()
     {
-        FollowPath();
-        // if (EvaluateVision()) ChaseTarget();
+        // if (EvaluateVision(target)) ChaseTarget(target);
     }
-
-    protected override void OnDestinationReached() => NextWaypoint();
 
     void GoToCurrentWaypoint()
     {
         if (_waypoints.Length == 0) return;
-        SetDestination(_waypoints[_waypointIndex].position);
+        _agent.SetDestination(_waypoints[_waypointIndex].position);
     }
 
     void NextWaypoint()
@@ -83,7 +81,7 @@ public class Hunter : AgentRunner
     void ChaseTarget(Transform target)
     {
         if (target == null) return;
-        SetDestination(target.position);
+        _agent.SetDestination(target.position);
     }
 
     bool EvaluateVision(Transform target)
@@ -103,9 +101,9 @@ public class Hunter : AgentRunner
         return _canSeeTarget;
     }
 
-    protected override void DrawGizmos(List<BaseNode> path, int currentIndex)
+    #region Gizmos
+    void OnDrawGizmos()
     {
-        // Vision
         if (!_drawVision) return;
 
         Vector3 eyes = transform.position + _eyesOffset;
@@ -120,4 +118,5 @@ public class Hunter : AgentRunner
         Gizmos.color = Color.white;
         Gizmos.DrawSphere(eyes, 0.1f);
     }
+    #endregion
 }
