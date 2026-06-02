@@ -13,14 +13,13 @@ public class PathfindingRunner : MonoBehaviour
         ThetaStarSmooth
     }
 
-    [SerializeField] AgentConfig _agent;
 
-    [Space]
     [SerializeField] SolverType solverType = SolverType.AStar;
     [SerializeField] NodesContainer nodesContainer;
 
 
     public NodesContainer Container => nodesContainer;
+    AgentConfig _agent => Container.Agent;
     public SolverType CurrentSolverType
     {
         get => solverType;

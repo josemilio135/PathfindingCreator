@@ -23,7 +23,7 @@
         container.Nodes.Add(this);
     }
 
-    void Disconnect(NodesContainer container)
+    public void Disconnect(NodesContainer container)
     {
         foreach (BaseNode neighbor in Neighbors)
             neighbor.RemoveNeighbor(this);
