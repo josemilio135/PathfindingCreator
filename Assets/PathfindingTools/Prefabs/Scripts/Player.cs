@@ -4,8 +4,7 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(AgentRunner))]
 public class Player : MonoBehaviour
 {
-    GameInput _inputs;
-    bool InputSetDestination => _inputs.Gameplay.MouseLeftClic.WasPressedThisFrame();
+    bool InputSetDestination => Mouse.current.leftButton.wasPressedThisFrame;
 
 
     AgentRunner _agent;
@@ -13,8 +12,6 @@ public class Player : MonoBehaviour
 
     private void Awake()
     {
-        _inputs = new GameInput();
-        _inputs.Enable();
         _agent = GetComponent<AgentRunner>();
         _walkableMask = _agent.CurrentContainer.Agent.WalkableMask;
     }
