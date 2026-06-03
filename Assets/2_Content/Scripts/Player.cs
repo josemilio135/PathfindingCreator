@@ -28,7 +28,7 @@ public class Player : MonoBehaviour
     {
         Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
 
-        if (Physics.Raycast(ray, out RaycastHit hit, 50, _walkableMask))
+        if (Physics.Raycast(ray, out RaycastHit hit, 500, _walkableMask))
         {
             _agent.SetDestination(hit.point);
         }
