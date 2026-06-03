@@ -964,7 +964,7 @@ GameObject:
   - component: {fileID: 24541620}
   - component: {fileID: 24541619}
   m_Layer: 0
-  m_Name: NODES_CONTAINER_Hunter
+  m_Name: NODES_CONTAINER
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6113,6 +6113,7 @@ GameObject:
   - component: {fileID: 330585545}
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
+  - component: {fileID: 330585548}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -6238,6 +6239,40 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!114 &330585548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 080696a48d6c8c742bebe5642a735ed1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _camera: {fileID: 330585545}
+  _moveSpeed: 8
+  _fastMoveMultiplier: 3
+  _moveSmoothTime: 0.08
+  _zoomSpeed: 200
+  _minDistance: 0.1
+  _maxDistance: 40
+  _zoomSmoothTime: 0.1
+  _horizontalRotationSpeed: 20
+  _verticalRotationSpeed: 20
+  _minVerticalAngle: -15
+  _maxVerticalAngle: 90
+  _dragPanSpeed: 0.05
+  _selectionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _followTerrainHeight: 1
+  _terrainMask:
+    serializedVersion: 2
+    m_Bits: 256
+  _terrainOffset: 1
+  _terrainHeightSmooth: 8
 --- !u!114 &338035188 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 6937284373492908677, guid: 7ed6d3191ecc0b549b201fb4a17650a5, type: 3}
