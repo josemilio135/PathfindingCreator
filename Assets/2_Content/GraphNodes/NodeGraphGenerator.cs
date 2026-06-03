@@ -37,11 +37,11 @@ public class NodeGraphGenerator : MonoBehaviour
     [Tooltip("Distance required before nearby generated nodes merge together.")]
     [SerializeField, Min(0.01f)] float _nodeMergeDistance = 1f;
 
-    [Tooltip("Additional distance applied when pushing nodes away from corners.")]
-    [SerializeField, Min(0.001f)] float _extraOffset = 0.05f;
+   // [Tooltip("Additional distance applied when pushing nodes away from corners.")]
+   // [SerializeField, Min(0.001f)] float _extraOffset = 0.05f;
 
-    [Tooltip("Minimum angle required for a corner to be considered valid.")]
-    [SerializeField, Range(0f, 180f)] float _minCornerAngle = 10f;
+  //  [Tooltip("Minimum angle required for a corner to be considered valid.")]
+  //  [SerializeField, Range(0f, 180f)] float _minCornerAngle = 10f;
 
     [Tooltip("Automatically removes the previous baked node container before baking again.")]
     [SerializeField] NodesContainer _targetContainer;

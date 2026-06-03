@@ -24,12 +24,7 @@ public class AgentRunner : MonoBehaviour
     WaypointNode _tempStart;
     WaypointNode _tempEnd;
 
-    public SolverType Solver
-    {
-        get => _pathfinding.CurrentSolverType;
-        set => _pathfinding.CurrentSolverType = value;
-    }
-
+    public NodesContainer CurrentContainer => _container;
     public bool IsMoving => _currentPath != null && _currentIndex < _currentPath.Count;
 
     public System.Action OnDestinationReached;
