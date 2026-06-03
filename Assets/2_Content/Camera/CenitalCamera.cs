@@ -79,10 +79,44 @@ public class CenitalCamera : MonoBehaviour
 
     Transform _selectedTarget;
 
+    float ZoomRatio => Mathf.InverseLerp(_minDistance, _maxDistance, _distance);
+    float ZoomScale => Mathf.Lerp(0.5f, 2f, ZoomRatio);
+
+
+    #region Input keys
+
+    //Otro día lo haré bien con InputActions
+    Vector2 InputMove
+    {
+        get
+        {
+            Vector2 input = Vector2.zero;
+
+            if (Keyboard.current.wKey.isPressed) input.y += 1;
+            if (Keyboard.current.sKey.isPressed) input.y -= 1;
+            if (Keyboard.current.dKey.isPressed) input.x += 1;
+            if (Keyboard.current.aKey.isPressed) input.x -= 1;
+
+            return input;
+        }
+    }
+
+    bool InputSprint => Keyboard.current.leftShiftKey.isPressed;
+    bool InputRotate => Mouse.current.rightButton.isPressed;
+    bool InputDrag => Mouse.current.middleButton.isPressed || (Keyboard.current.spaceKey.isPressed && Mouse.current.leftButton.isPressed);
+    bool InputSelect => Mouse.current.leftButton.wasPressedThisFrame;
+    bool InputFocus => Keyboard.current.fKey.wasPressedThisFrame;
+
+    Vector2 InputMousePosition => Mouse.current.position.ReadValue();
+    Vector2 InputMouseDelta => Mouse.current.delta.ReadValue();
+    float InputZoom => Mouse.current.scroll.ReadValue().y;
+
+    #endregion
+
+    //The Min value cannot be greather tha the Max value
     void OnValidate()
     {
         _maxDistance = Mathf.Max(_maxDistance, _minDistance);
-
         _maxVerticalAngle = Mathf.Max(_maxVerticalAngle, _minVerticalAngle);
     }
 
@@ -90,17 +124,16 @@ public class CenitalCamera : MonoBehaviour
     {
         if (_camera == null) _camera = Camera.main;
 
-        GameObject pivot = new("[RTS Camera Pivot]");
+        GameObject pivot = new("[Cenital Camera Pivot]");
         _pivot = pivot.transform;
 
         _pivot.position = transform.position;
 
-        Vector3 euler = transform.rotation.eulerAngles;
+        _horizontalAngle = transform.rotation.eulerAngles.y;
+        _verticalAngle = transform.rotation.eulerAngles.x;
 
-        _horizontalAngle = euler.y;
-        _verticalAngle = euler.x;
-
-        _distance = Mathf.Clamp(Vector3.Distance(transform.position, _pivot.position), _minDistance, _maxDistance);
+        _distance = Vector3.Distance(transform.position, _pivot.position);
+        _distance = Mathf.Clamp(_distance, _minDistance, _maxDistance);
 
         if (_distance <= _minDistance)
             _distance = (_minDistance + _maxDistance) * 0.5f;
@@ -130,102 +163,61 @@ public class CenitalCamera : MonoBehaviour
 
     void HandleMovement()
     {
-        Vector2 moveInput = Vector2.zero;
+        float speed = _moveSpeed * ZoomScale;
 
-        if (Keyboard.current.wKey.isPressed) moveInput.y += 1;
-        if (Keyboard.current.sKey.isPressed) moveInput.y -= 1;
-        if (Keyboard.current.dKey.isPressed) moveInput.x += 1;
-        if (Keyboard.current.aKey.isPressed) moveInput.x -= 1;
-
-        Vector3 forward = Quaternion.Euler(0f, _horizontalAngle, 0f) * Vector3.forward;
-
-        Vector3 right = Quaternion.Euler(0f, _horizontalAngle, 0f) * Vector3.right;
-
-        forward.y = 0f;
-        right.y = 0f;
-
-        forward.Normalize();
-        right.Normalize();
-
-        float zoomRatio = Mathf.InverseLerp(_minDistance, _maxDistance, _distance);
-
-        float speed = _moveSpeed * Mathf.Lerp(0.5f, 2f, zoomRatio);
-
-        if (Keyboard.current.leftShiftKey.isPressed)
+        if (InputSprint)
             speed *= _fastMoveMultiplier;
 
-        Vector3 movement = (forward * moveInput.y + right * moveInput.x) * speed * Time.deltaTime;
-
-
+        Vector3 movement =
+            (FlatVector(Vector3.forward) * InputMove.y
+           + FlatVector(Vector3.right) * InputMove.x) * speed * Time.deltaTime;
 
         _targetPivotPosition += movement;
     }
 
     void HandleDragPan()
     {
-        bool drag = Mouse.current.middleButton.isPressed || (Keyboard.current.spaceKey.isPressed && Mouse.current.leftButton.isPressed);
-
-        if (drag && !_dragging)
+        if (InputDrag && !_dragging)
         {
             _dragging = true;
-            _lastMousePosition = Mouse.current.position.ReadValue();
+            _lastMousePosition = InputMousePosition;
         }
 
-        if (!drag)
+        if (!InputDrag)
         {
             _dragging = false;
             return;
         }
 
-        Vector2 current = Mouse.current.position.ReadValue();
+        Vector2 current = InputMousePosition;
         Vector2 delta = current - _lastMousePosition;
 
         _lastMousePosition = current;
 
-        float zoomRatio = Mathf.InverseLerp(_minDistance, _maxDistance, _distance);
-
-        float zoomScale = Mathf.Lerp(0.5f, 2f, zoomRatio);
-
-        Vector3 right = Quaternion.Euler(0f, _horizontalAngle, 0f) * Vector3.right;
-
-        Vector3 forward = Quaternion.Euler(0f, _horizontalAngle, 0f) * Vector3.forward;
-
-        right.y = 0f;
-        forward.y = 0f;
-
-        right.Normalize();
-        forward.Normalize();
-
-        _targetPivotPosition -= (right * delta.x + forward * delta.y) * _dragPanSpeed * zoomScale;
+        _targetPivotPosition -= (FlatVector(Vector3.right) * delta.x + FlatVector(Vector3.forward) * delta.y) * _dragPanSpeed * ZoomScale;
     }
 
     void HandleZoom()
     {
-        float scroll = Mouse.current.scroll.ReadValue().y;
-
-        _targetDistance -= scroll * (_zoomSpeed * 0.01f);
-
+        _targetDistance -= InputZoom * (_zoomSpeed * 0.01f);
         _targetDistance = Mathf.Clamp(_targetDistance, _minDistance, _maxDistance);
     }
 
     void HandleRotation()
     {
-        if (!Mouse.current.rightButton.isPressed) return;
+        if (!InputRotate) return;
 
-        Vector2 delta = Mouse.current.delta.ReadValue();
-
-        _horizontalAngle += delta.x * _horizontalRotationSpeed * Time.deltaTime;
-
-        _verticalAngle -= delta.y * _verticalRotationSpeed * Time.deltaTime;
+        _horizontalAngle += InputMouseDelta.x * _horizontalRotationSpeed * Time.deltaTime;
+        _verticalAngle -= InputMouseDelta.y * _verticalRotationSpeed * Time.deltaTime;
 
         _verticalAngle = Mathf.Clamp(_verticalAngle, _minVerticalAngle, _maxVerticalAngle);
     }
 
     void HandleSelection()
     {
-        if (!Mouse.current.leftButton.wasPressedThisFrame) return;
+        if (!InputSelect) return;
 
-        Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
+        Ray ray = _camera.ScreenPointToRay(InputMousePosition);
 
         if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, _selectionMask)) return;
 
@@ -235,8 +227,7 @@ public class CenitalCamera : MonoBehaviour
     void HandleFocus()
     {
         if (_selectedTarget == null) return;
-
-        if (!Keyboard.current.fKey.wasPressedThisFrame) return;
+        if (!InputFocus) return;
 
         _targetPivotPosition = _selectedTarget.position;
     }
@@ -268,7 +259,12 @@ public class CenitalCamera : MonoBehaviour
         transform.position = _pivot.position + offset;
         transform.rotation = rotation;
     }
-
+    Vector3 FlatVector(Vector3 vector)
+    {
+        Vector3 flatted = Quaternion.Euler(0f, _horizontalAngle, 0f) * vector;
+        flatted.y = 0f;
+        return flatted.normalized;
+    }
     public void Focus(Transform target)
     {
         if (target == null)
