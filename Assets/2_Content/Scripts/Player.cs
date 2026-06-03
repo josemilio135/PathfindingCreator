@@ -1,11 +1,11 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(AgentRunner))]
 public class Player : MonoBehaviour
 {
     GameInput _inputs;
     bool InputSetDestination => _inputs.Gameplay.MouseLeftClic.WasPressedThisFrame();
-
 
 
     AgentRunner _agent;

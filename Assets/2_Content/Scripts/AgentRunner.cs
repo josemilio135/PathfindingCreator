@@ -49,6 +49,8 @@ public class AgentRunner : MonoBehaviour
 
     public void SetDestination(Vector3 destination)
     {
+        destination = FindNearestNavegablePos(destination);
+
         _pathfinding.CurrentSolverType = _solverType;
 
         _tempStart.transform.position = transform.position;
@@ -93,6 +95,35 @@ public class AgentRunner : MonoBehaviour
 
         if (MoveTowards(_currentPath[_currentIndex].Position, _nodeReachDistance))
             _currentIndex++;
+    }
+    Vector3 FindNearestNavegablePos(Vector3 target,
+        float maxSearchRadius = 3f, float stepRadius = 0.25f, int samplesPerRing = 16)
+    {
+        if (IsPositionWalkable(target)) return target;
+
+        for (float radius = stepRadius; radius <= maxSearchRadius; radius += stepRadius)
+        {
+            for (int i = 0; i < samplesPerRing; i++)
+            {
+                float angle = (360f / samplesPerRing) * i;
+
+                Vector3 candidate =
+                    target + Quaternion.Euler(0, angle, 0) * Vector3.forward * radius;
+
+                if (IsPositionWalkable(candidate)) return candidate;
+            }
+        }
+        return target;
+    }
+    bool IsPositionWalkable(Vector3 position)
+    {
+        float radius = _container.Agent.Radius;
+        float height = _container.Agent.Height;
+
+        Vector3 bottom = position + Vector3.up * radius;
+        Vector3 top = position + Vector3.up * (height - radius);
+
+        return !Physics.CheckCapsule(bottom, top, radius, _container.Agent.ObstacleMask);
     }
 
     public bool MoveTowards(Vector3 target, float stoppingDistance)
