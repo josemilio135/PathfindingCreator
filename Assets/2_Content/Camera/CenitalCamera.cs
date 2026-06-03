@@ -170,23 +170,22 @@ public class CenitalCamera : MonoBehaviour
 
         Vector3 movement =
             (FlatVector(Vector3.forward) * InputMove.y
-           + FlatVector(Vector3.right) * InputMove.x) * speed * Time.deltaTime;
+             + FlatVector(Vector3.right) * InputMove.x) * speed * Time.deltaTime;
 
         _targetPivotPosition += movement;
     }
 
     void HandleDragPan()
     {
-        if (InputDrag && !_dragging)
-        {
-            _dragging = true;
-            _lastMousePosition = InputMousePosition;
-        }
-
         if (!InputDrag)
         {
             _dragging = false;
             return;
+        }
+        else if (!_dragging)
+        {
+            _dragging = true;
+            _lastMousePosition = InputMousePosition;
         }
 
         Vector2 current = InputMousePosition;
@@ -194,7 +193,9 @@ public class CenitalCamera : MonoBehaviour
 
         _lastMousePosition = current;
 
-        _targetPivotPosition -= (FlatVector(Vector3.right) * delta.x + FlatVector(Vector3.forward) * delta.y) * _dragPanSpeed * ZoomScale;
+        _targetPivotPosition -=
+            (FlatVector(Vector3.right) * delta.x
+           + FlatVector(Vector3.forward) * delta.y) * _dragPanSpeed * ZoomScale;
     }
 
     void HandleZoom()
@@ -219,7 +220,7 @@ public class CenitalCamera : MonoBehaviour
 
         Ray ray = _camera.ScreenPointToRay(InputMousePosition);
 
-        if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, _selectionMask)) return;
+        if (!Physics.Raycast(ray, out RaycastHit hit, 100f, _selectionMask)) return;
 
         _selectedTarget = hit.transform;
     }
@@ -238,7 +239,7 @@ public class CenitalCamera : MonoBehaviour
 
         Vector3 rayOrigin = _targetPivotPosition + Vector3.up * 500f;
 
-        if (!Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, 1000f, _terrainMask)) return;
+        if (!Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, 100f, _terrainMask)) return;
 
         _targetPivotPosition.y = Mathf.Lerp(_targetPivotPosition.y, hit.point.y + _terrainOffset, Time.deltaTime * _terrainHeightSmooth);
     }
