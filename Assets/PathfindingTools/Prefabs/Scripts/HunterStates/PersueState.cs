@@ -8,6 +8,15 @@ public class PersueState : BaseState<Hunter>
         _target = target;
     }
 
+    public override void OnEnter()
+    {
+        controller.IsPursue = true;
+        controller.AlertTo(_target.transform.position);
+
+        Debug.Log("Persui player");
+        controller.SetStateText("!");
+    }
+
     public override void Update()
     {
         controller.AgentPath.SetDestination(_target.transform.position);
@@ -23,14 +32,11 @@ public class PersueState : BaseState<Hunter>
         //  controller.AgentPath.SetDestination(predictedPos);
 
     }
-    public override void OnEnter()
-    {
-        Debug.Log("Persui player");
-    }
 
     public override void OnExit()
     {
-        controller.AlertTo(_target.transform.position);
+        controller.IsPursue = false;
+        controller.LastKnownPos = _target.transform.position;
     }
 
 }

@@ -16,6 +16,8 @@ public class PatrolState : BaseState<Hunter>
     {
         AdvanceWaypoint();
         GoToCurrentWaypoint();
+
+        controller.SetStateText("...");
     }
 
     public override void Update() { }

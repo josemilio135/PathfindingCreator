@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 public class Hunter : Controller
 {
@@ -21,14 +22,16 @@ public class Hunter : Controller
     [SerializeField] Vector3 _eyesOffset = new(0f, 1.5f, 0f);
 
     [Header("Debug")]
+    [SerializeField] TMP_Text stateText;
     [SerializeField] bool _drawVision = true;
     [SerializeField] Color _rangeColor = Color.cyan;
     [SerializeField] Color _viewAngleColor = Color.blue;
 
     public AgentRunner AgentPath { get; private set; }
     public bool PatrolPingPong => _patrolPingPong;
-    public bool IsAlerted { get; private set; }
-    public Vector3 LastKnownPos { get; private set; }
+    public bool IsAlerted { get;  set; }
+    public bool IsPursue { get; set; }
+    public Vector3 LastKnownPos { get; set; }
 
     bool _isInRange;
     bool _isInsideAngle;
@@ -59,9 +62,11 @@ public class Hunter : Controller
     protected override void SetTransitions()
     {
         Any(pursueState, new FuncPredicate(CanPursueTarget));
-        Any(searchState, new FuncPredicate(() => IsAlerted));
+        Any(searchState, new FuncPredicate(() => ShouldSearch()));
 
         At(lookAroundState, patrolState, new FuncPredicate(() => lookAroundState.Finished));
+        At(pursueState, searchState, new FuncPredicate(() => !CanSeeTarget()));
+
         At(patrolState, lookAroundState, new FuncPredicate(() => !AgentPath.IsMoving));
         At(searchState, lookAroundState, new FuncPredicate(() => !AgentPath.IsMoving));
 
@@ -73,20 +78,24 @@ public class Hunter : Controller
         LastKnownPos = position;
         IsAlerted = true;
     }
-
-    public void ClearAlert() => IsAlerted = false;
-
     void AlertAllies(Vector3 position)
     {
         foreach (var ally in _allies)
             ally.AlertTo(position);
     }
 
+    public void SetStateText(string text)
+    {
+        stateText.text = text;
+    }
+
     #region Predicates 
-    bool ShouldAlert() => IsAlerted && !CanPursueTarget();
+    bool ShouldSearch() => IsAlerted && !IsPursue;
     bool CanPursueTarget()
     {
         if (_target == null) return false;
+
+        if (IsPursue) return false;
         return CanSeeTarget() && AgentPath.HasDirectLOS(_target.transform.position);
     }
     bool CanSeeTarget()

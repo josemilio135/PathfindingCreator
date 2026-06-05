@@ -16,6 +16,8 @@ public class LookAroundState : BaseState<Hunter>
 
         Finished = false;
         _timer = 0f;
+
+        controller.SetStateText("Mmm...");
     }
 
     public override void Update()

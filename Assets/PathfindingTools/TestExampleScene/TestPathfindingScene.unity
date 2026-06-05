@@ -6054,7 +6054,7 @@ MonoBehaviour:
   _terrainMask:
     serializedVersion: 2
     m_Bits: 256
-  _terrainOffset: 5
+  _terrainOffset: 1.5
   _terrainHeightSmooth: 8
 --- !u!114 &338035188 stripped
 MonoBehaviour:
@@ -33200,14 +33200,6 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1543429562}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
-      propertyPath: _fovAngle
-      value: 160
-      objectReference: {fileID: 0}
-    - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
-      propertyPath: _drawVision
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: _waypointsContainer
       value: 
       objectReference: {fileID: 911214446}
@@ -33255,14 +33247,6 @@ PrefabInstance:
       propertyPath: _container
       value: 
       objectReference: {fileID: 24541619}
-    - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
-      propertyPath: _moveSpeed
-      value: 5
-      objectReference: {fileID: 0}
-    - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
-      propertyPath: _slowDownDistance
-      value: 0.1
-      objectReference: {fileID: 0}
     - target: {fileID: 8796284243452123913, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: m_Name
       value: Hunter
@@ -33270,7 +33254,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 599317599760954860, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
   m_SourcePrefab: {fileID: 100100000, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
 --- !u!1001 &6530037712571016545
 PrefabInstance:
