@@ -3,6 +3,7 @@ using UnityEngine;
 public class KinematicMovement
 {
     float _rotationSpeed;
+    public Vector3 Velocity { get; private set; }
 
     public KinematicMovement(float rotationSpeed)
     {
@@ -21,7 +22,8 @@ public class KinematicMovement
     {
         Vector3 direction = (target - transform.position).normalized;
         Rotate(transform, direction);
-        transform.position += direction * speed * Time.deltaTime;
+        Velocity = direction * speed * Time.deltaTime;
+        transform.position += Velocity;
     }
     public bool MoveTowards(Transform transform, Vector3 target, float speed, float stoppingDistance)
     {
@@ -37,7 +39,9 @@ public class KinematicMovement
         Vector3 flatTarget = new(target.x, transform.position.y, target.z);
         Vector3 direction = (flatTarget - transform.position).normalized;
         Rotate(transform, direction);
-        transform.position += direction * speed * Time.deltaTime;
+
+        Velocity = direction * speed * Time.deltaTime;
+        transform.position += Velocity;
     }
     public bool MoveTowardsFlat(Transform transform, Vector3 target, float speed, float stoppingDistance)
     {

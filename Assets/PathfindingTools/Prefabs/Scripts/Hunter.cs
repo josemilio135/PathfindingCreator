@@ -1,13 +1,15 @@
 using UnityEngine;
-public class Hunter2 : Controller
+public class Hunter : Controller
 {
+
     [Header("Patrol")]
     [SerializeField] Transform _waypointsContainer;
-    [SerializeField] bool _pingPong = true;
+    [SerializeField] float _lookAroundTime = 2f;
+    [SerializeField] bool _patrolPingPong = true;
 
     [Header("Target")]
-    [SerializeField] Transform _target;
-    
+    [SerializeField] AgentRunner _target;
+
     [Header("Vision")]
     [SerializeField] LayerMask _obstacleMask;
     [SerializeField, Min(0)] float _viewRange = 10f;
@@ -19,41 +21,70 @@ public class Hunter2 : Controller
     [SerializeField] Color _rangeColor = Color.cyan;
     [SerializeField] Color _viewAngleColor = Color.blue;
 
+    public bool PatrolPingPong => _patrolPingPong;
+    public AgentRunner AgentPath { get; set; }
+
     bool _isInRange;
     bool _isInsideAngle;
     bool _canSeeTarget;
 
-    AgentRunner _agent;
-    Transform[] _waypoints;
-    int _waypointIndex;
-    int _waypointDir = 1;
-
-    IdleState idleState;
+    LookAroundState lookAroundState;
+    PatrolState patrolState;
     PersueState persueState;
+    SearchState searchState;
 
-    protected override void CreateStates() => idleState = new IdleState(stateMachine, this);
-    protected override void SetInitialState() => stateMachine.SetState(idleState);
+    protected override void SetInitialState() => stateMachine.SetState(lookAroundState);
+    protected override void CreateStates()
+    {
+        AgentPath = GetComponent<AgentRunner>();
+
+        lookAroundState = new LookAroundState(stateMachine, this, _lookAroundTime);
+        patrolState = new PatrolState(stateMachine, this, _waypointsContainer);
+        persueState = new PersueState(stateMachine, this, _target);
+        searchState = new SearchState(stateMachine, this);
+
+    }
+
     /* 
-     * 1. Idle -> esperar en cada waypoint   
-     * 2. Patrullar al siguiente waypoint (cada uno tiene sus propios wps)
-     * 3. Desde cualquiera si ve al jugador alerta (field of view) (con mini idle/animacion)
-     * 4. Perseguir jugador
+     * 1. LookAround -> esperar en cada waypoint   //rota hacia ambos lados viendo en 360 en 2 tandas
      * 5. Si fui alertado y llego y no está el jugador, me regreso
-     * 6. Si le persigo y pierdo al jugador de vista, me regreso
     */
     protected override void SetTransitions()
     {
-        Any(persueState, new FuncPredicate(() => CanSeeTarget()));
+        Any(persueState, new FuncPredicate(() => CanPursuiTarget()));
+        Any(searchState, new FuncPredicate(() => MustSearchTarget()));
+
+        At(lookAroundState, patrolState, new FuncPredicate(() => !IsLookAround));
+        At(persueState, lookAroundState, new FuncPredicate(() => !CanSeeTarget()));
+        At(searchState, lookAroundState, new FuncPredicate(() => ArriveAlertPos()));
+
     }
 
-    #region Predicates 
+    public bool IsLookAround { get; set; }
+    public bool IsAlert { get; set; } = false;
+    public Vector3 LastKnownPos { get; private set; }
 
+    public void AlertTo(Vector3 position)
+    {
+        LastKnownPos = position;
+        IsAlert = true;
+    }
+    public void ClearAlert() => IsAlert = false;
+
+
+    #region Predicates 
+    bool MustSearchTarget() => IsAlert || (CanSeeTarget() && !CanPursuiTarget());
+    bool CanPursuiTarget() => CanSeeTarget() && AgentPath.HasDirectLOS(_target.transform.position);
+    bool ArriveAlertPos()
+    {
+        return true;
+    }
     bool CanSeeTarget()
     {
         if (_target == null) return false;
 
         Vector3 eyes = transform.position + _eyesOffset;
-        Vector3 targetPos = _target.position + _eyesOffset;
+        Vector3 targetPos = _target.gameObject.transform.position + _eyesOffset;
 
         _isInRange = Perception.IsInRange(eyes, targetPos, _viewRange);
         if (!_isInRange) return false;
@@ -66,109 +97,7 @@ public class Hunter2 : Controller
 
         return true;
     }
-
     #endregion
-}
-public class Hunter : MonoBehaviour
-{
-    [Header("Patrol")]
-    [SerializeField] Transform _waypointsContainer;
-    [SerializeField] bool _pingPong = true;
-
-    [Header("Vision")]
-    [SerializeField] LayerMask _obstacleMask;
-    [SerializeField, Min(0)] float _viewRange = 10f;
-    [SerializeField, Range(0f, 360f)] float _fovAngle = 90f;
-    [SerializeField] Vector3 _eyesOffset = new(0f, 1.5f, 0f);
-
-    [Header("Debug")]
-    [SerializeField] bool _drawVision = true;
-    [SerializeField] Color _rangeColor = Color.cyan;
-    [SerializeField] Color _viewAngleColor = Color.blue;
-
-    bool _isInRange;
-    bool _isInsideAngle;
-    bool _canSeeTarget;
-
-    AgentRunner _agent;
-    Transform[] _waypoints;
-    int _waypointIndex;
-    int _waypointDir = 1;
-
-    void Awake()
-    {
-        _agent = GetComponent<AgentRunner>();
-        _agent.OnDestinationReached += NextWaypoint;
-
-        if (_waypointsContainer != null)
-        {
-            _waypoints = new Transform[_waypointsContainer.childCount];
-            for (int i = 0; i < _waypointsContainer.childCount; i++)
-                _waypoints[i] = _waypointsContainer.GetChild(i);
-        }
-        else _waypoints = System.Array.Empty<Transform>();
-    }
-
-    void Start()
-    {
-        if (_waypoints.Length > 0) GoToCurrentWaypoint();
-    }
-
-    void Update()
-    {
-        // if (EvaluateVision(target)) ChaseTarget(target);
-    }
-
-    void GoToCurrentWaypoint()
-    {
-        if (_waypoints.Length == 0) return;
-        _agent.SetDestination(_waypoints[_waypointIndex].position);
-    }
-
-    void NextWaypoint()
-    {
-        if (_pingPong)
-        {
-            _waypointIndex += _waypointDir;
-
-            if (_waypointIndex >= _waypoints.Length)
-            {
-                _waypointDir = -1;
-                _waypointIndex = _waypoints.Length - 2;
-            }
-            else if (_waypointIndex < 0)
-            {
-                _waypointDir = 1;
-                _waypointIndex = 1;
-            }
-        }
-        else _waypointIndex = (_waypointIndex + 1) % _waypoints.Length;
-
-        GoToCurrentWaypoint();
-    }
-
-    void ChaseTarget(Transform target)
-    {
-        if (target == null) return;
-        _agent.SetDestination(target.position);
-    }
-
-    bool EvaluateVision(Transform target)
-    {
-        if (target == null) return false;
-
-        Vector3 eyes = transform.position + _eyesOffset;
-        Vector3 targetPos = target.position + _eyesOffset;
-
-        _isInRange = Perception.IsInRange(eyes, targetPos, _viewRange);
-        if (!_isInRange) return false;
-
-        _isInsideAngle = Perception.IsInViewAngle(eyes, transform.forward, targetPos, _fovAngle);
-        if (!_isInsideAngle) return false;
-
-        _canSeeTarget = Perception.HasLineOfSight(eyes, targetPos, _obstacleMask);
-        return _canSeeTarget;
-    }
 
     #region Gizmos
     void OnDrawGizmos()

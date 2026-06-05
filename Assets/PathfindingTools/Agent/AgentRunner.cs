@@ -28,11 +28,13 @@ public class AgentRunner : MonoBehaviour
     int _currentIndex;
     WaypointNode _tempStart;
     WaypointNode _tempEnd;
+    public System.Action OnDestinationReached;
 
     public NodesContainer CurrentContainer => _container;
     public bool IsMoving => _currentPath != null && _currentIndex < _currentPath.Count;
-
-    public System.Action OnDestinationReached;
+    public Vector3 Velocity => _movement.Velocity;
+    public float MoveSpeed => _moveSpeed;
+    public float RotationSpeed => _rotationSpeed;
 
     void Awake()
     {
@@ -164,7 +166,7 @@ public class AgentRunner : MonoBehaviour
         return !Physics.CheckCapsule(bottom, top, radius, _container.Agent.ObstacleMask);
     }
 
-    bool HasDirectLOS(Vector3 destination)
+    public bool HasDirectLOS(Vector3 destination)
     {
         return Perception.HasLineOfSight_Capsule(
                          transform.position, destination,

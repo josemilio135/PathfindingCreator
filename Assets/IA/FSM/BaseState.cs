@@ -12,17 +12,8 @@ public abstract class BaseState<T> : IState where T : Controller
         this.controller = controller;
         //this.animator = animator;
     }
-    public virtual void OnEnter()
-    {
-        //Debug.Log("Enter State");
-    }
-    public virtual void Update()
-    {
-        //Debug.Log("Update State");
-    }
-    public virtual void OnExit()
-    {
-        //  Debug.Log("Exit State");
-    }
+    public abstract void OnEnter();
+    public abstract void Update();
+    public abstract void OnExit();
 }
 
