@@ -2,7 +2,8 @@ using UnityEngine;
 
 public abstract class Controller : MonoBehaviour
 {
-    /* stateMachine.AddTransition(a, b, new FuncPredicate(() => Predicate())); */
+    /*                      //  TRANSITIONS USE MODE  //
+     * stateMachine.AddTransition(a, b, new FuncPredicate(() => Predicate())); */
     /* stateMachine.AddAnyTransition(a, new FuncPredicate(() => ShouldGetHit())); */
 
     protected StateMachine stateMachine;
@@ -13,8 +14,6 @@ public abstract class Controller : MonoBehaviour
     }
     protected virtual void Start()
     {
-        // if (TryGetComponent(out Animator animator)) _animator = animator;
-
         stateMachine = new StateMachine();
 
         CreateStates();
@@ -30,9 +29,10 @@ public abstract class Controller : MonoBehaviour
         stateMachine.AddAnyTransition(to, condition);
     }
 
-    protected abstract void SetInitialState();  // stateMachine.SetState(idleState);
-    protected abstract void CreateStates();
-    //var idleState = new IdleState(stateMachine, this);
+    protected abstract void SetInitialState();  // Use mode -> stateMachine.SetState(idleState);
+    protected abstract void CreateStates(); // Use mode -> var idleState = new IdleState(stateMachine, this);
     protected abstract void SetTransitions();
+
+    //All states must be declared
 
 }

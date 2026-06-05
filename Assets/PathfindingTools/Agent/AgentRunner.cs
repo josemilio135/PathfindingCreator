@@ -9,12 +9,12 @@ public class AgentRunner : MonoBehaviour
     [SerializeField] NodesContainer _container;
 
     [Header("Movement")]
-    [SerializeField] float _moveSpeed = 5f;
-    [SerializeField] float _rotationSpeed = 10f;
-    [SerializeField] float _nodeReachDistance = 0.2f;
+    [SerializeField, Min(0f)] float _moveSpeed = 5f;
+    [SerializeField, Min(0f)] float _rotationSpeed = 10f;
+    [SerializeField, Min(0.01f)] float _nodeReachDistance = 0.2f;
 
     [Header("Arrive")]
-    [SerializeField] float _slowDownDistance = 3f;
+    [SerializeField, Min(0f)] float _slowDownDistance = 3f;
 
     [Header("Debug")]
     [SerializeField] bool _drawPath = true;
@@ -40,7 +40,7 @@ public class AgentRunner : MonoBehaviour
 
         _pathfinding = gameObject.AddComponent<PathfindingRunner>();
         _pathfinding.CurrentSolverType = _solverType;
-        _pathfinding.SetContainer(_container);
+        _pathfinding.Container = _container;
 
         _tempStart = CreateTempNode("Start");
         _tempEnd = CreateTempNode("End");
@@ -56,6 +56,9 @@ public class AgentRunner : MonoBehaviour
 
     public void SetDestination(Vector3 destination)
     {
+        _tempStart.gameObject.SetActive(false);
+        _tempEnd.gameObject.SetActive(false);
+
         destination = FindNearestNavegablePos(destination);
 
         _pathfinding.CurrentSolverType = _solverType;
@@ -63,8 +66,17 @@ public class AgentRunner : MonoBehaviour
         _tempStart.transform.position = transform.position;
         _tempEnd.transform.position = destination;
 
-        _tempStart.gameObject.SetActive(true);
         _tempEnd.gameObject.SetActive(true);
+
+        if (HasDirectLOS(destination))
+        {
+            _currentPath.Clear();
+            _currentPath.Add(_tempEnd);
+            _currentIndex = 0;
+            return;
+        }
+
+        _tempStart.gameObject.SetActive(true);
 
         _tempStart.Connect(_pathfinding.Container);
         _tempEnd.Connect(_pathfinding.Container);
@@ -106,8 +118,10 @@ public class AgentRunner : MonoBehaviour
             speed = Mathf.Max(_moveSpeed * (remainingDistance / _slowDownDistance), 0.1f);
         }
 
-        if (_movement.MoveTowards(transform, nodePos, speed, _nodeReachDistance))
-            _currentIndex++;
+        bool arriveDestination =
+            _movement.MoveTowardsFlat(transform, nodePos, speed, _nodeReachDistance);
+
+        if (arriveDestination) _currentIndex++;
     }
 
     float RemainingPathDistance()
@@ -122,8 +136,8 @@ public class AgentRunner : MonoBehaviour
         return distance;
     }
 
-    Vector3 FindNearestNavegablePos(Vector3 target,
-        float maxSearchRadius = 3f, float stepRadius = 0.25f, int samplesPerRing = 16)
+
+    Vector3 FindNearestNavegablePos(Vector3 target, float maxSearchRadius = 3f, float stepRadius = 0.25f, int samplesPerRing = 16)
     {
         if (IsPositionWalkable(target)) return target;
 
@@ -148,6 +162,15 @@ public class AgentRunner : MonoBehaviour
         Vector3 top = position + Vector3.up * (height - radius);
 
         return !Physics.CheckCapsule(bottom, top, radius, _container.Agent.ObstacleMask);
+    }
+
+    bool HasDirectLOS(Vector3 destination)
+    {
+        return Perception.HasLineOfSight_Capsule(
+                         transform.position, destination,
+                         _container.Agent.Radius,
+                          _container.Agent.Height,
+                         _container.Agent.ObstacleMask);
     }
 
     #region Gizmos

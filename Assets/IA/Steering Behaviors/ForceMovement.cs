@@ -4,29 +4,29 @@ public class ForceMovement
 {
     float _maxSpeed;
     float _mass;
-    float _maxSteeringForce;
+    float _maxForce;
     float _rotationSpeed;
 
     Vector3 _velocity;
-    Vector3 _steeringForce;
+    Vector3 _currentForce;
 
     public Vector3 Velocity => _velocity;
 
-    public ForceMovement(float maxSpeed, float mass, float maxSteeringForce, float rotationSpeed)
+    public ForceMovement(float maxSpeed, float mass, float maxForce, float rotationSpeed)
     {
         _maxSpeed = maxSpeed;
         _mass = mass;
-        _maxSteeringForce = maxSteeringForce;
+        _maxForce = maxForce;
         _rotationSpeed = rotationSpeed;
     }
 
-    public void AddForce(Vector3 force) => _steeringForce += force;
+    public void AddForce(Vector3 force) => _currentForce += force;
 
     public void ApplyMovement(Transform transform)
     {
-        _steeringForce = Vector3.ClampMagnitude(_steeringForce, _maxSteeringForce);
+        _currentForce = Vector3.ClampMagnitude(_currentForce, _maxForce);
 
-        Vector3 acceleration = _steeringForce / _mass;
+        Vector3 acceleration = _currentForce / _mass;
         _velocity += acceleration * Time.deltaTime;
         _velocity = Vector3.ClampMagnitude(_velocity, _maxSpeed);
         _velocity.y = 0f;
@@ -39,7 +39,7 @@ public class ForceMovement
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, _rotationSpeed * Time.deltaTime);
         }
 
-        _steeringForce = Vector3.zero;
+        _currentForce = Vector3.zero;
     }
 
     public void SetIdle(float brakeForce = 2f, bool instant = false)

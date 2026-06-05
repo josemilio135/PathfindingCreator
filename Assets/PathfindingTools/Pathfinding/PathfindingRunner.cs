@@ -5,7 +5,11 @@ public class PathfindingRunner : MonoBehaviour
 {
     [SerializeField] SolverType solverType = SolverType.AStar;
     [SerializeField] NodesContainer nodesContainer;
-    public NodesContainer Container => nodesContainer;
+    public NodesContainer Container
+    {
+        get => nodesContainer;
+        set => nodesContainer = value;
+    }
     public enum SolverType
     {
         DFS,
@@ -70,7 +74,4 @@ public class PathfindingRunner : MonoBehaviour
 
         return result;
     }
-
-    public void SetContainer(NodesContainer container) => nodesContainer = container;
-
 }

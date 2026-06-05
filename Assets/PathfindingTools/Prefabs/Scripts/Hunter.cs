@@ -1,5 +1,74 @@
 using UnityEngine;
+public class Hunter2 : Controller
+{
+    [Header("Patrol")]
+    [SerializeField] Transform _waypointsContainer;
+    [SerializeField] bool _pingPong = true;
 
+    [Header("Target")]
+    [SerializeField] Transform _target;
+    
+    [Header("Vision")]
+    [SerializeField] LayerMask _obstacleMask;
+    [SerializeField, Min(0)] float _viewRange = 10f;
+    [SerializeField, Range(0f, 360f)] float _fovAngle = 90f;
+    [SerializeField] Vector3 _eyesOffset = new(0f, 1.5f, 0f);
+
+    [Header("Debug")]
+    [SerializeField] bool _drawVision = true;
+    [SerializeField] Color _rangeColor = Color.cyan;
+    [SerializeField] Color _viewAngleColor = Color.blue;
+
+    bool _isInRange;
+    bool _isInsideAngle;
+    bool _canSeeTarget;
+
+    AgentRunner _agent;
+    Transform[] _waypoints;
+    int _waypointIndex;
+    int _waypointDir = 1;
+
+    IdleState idleState;
+    PersueState persueState;
+
+    protected override void CreateStates() => idleState = new IdleState(stateMachine, this);
+    protected override void SetInitialState() => stateMachine.SetState(idleState);
+    /* 
+     * 1. Idle -> esperar en cada waypoint   
+     * 2. Patrullar al siguiente waypoint (cada uno tiene sus propios wps)
+     * 3. Desde cualquiera si ve al jugador alerta (field of view) (con mini idle/animacion)
+     * 4. Perseguir jugador
+     * 5. Si fui alertado y llego y no está el jugador, me regreso
+     * 6. Si le persigo y pierdo al jugador de vista, me regreso
+    */
+    protected override void SetTransitions()
+    {
+        Any(persueState, new FuncPredicate(() => CanSeeTarget()));
+    }
+
+    #region Predicates 
+
+    bool CanSeeTarget()
+    {
+        if (_target == null) return false;
+
+        Vector3 eyes = transform.position + _eyesOffset;
+        Vector3 targetPos = _target.position + _eyesOffset;
+
+        _isInRange = Perception.IsInRange(eyes, targetPos, _viewRange);
+        if (!_isInRange) return false;
+
+        _isInsideAngle = Perception.IsInViewAngle(eyes, transform.forward, targetPos, _fovAngle);
+        if (!_isInsideAngle) return false;
+
+        _canSeeTarget = Perception.HasLineOfSight(eyes, targetPos, _obstacleMask);
+        if (!_canSeeTarget) return false;
+
+        return true;
+    }
+
+    #endregion
+}
 public class Hunter : MonoBehaviour
 {
     [Header("Patrol")]
