@@ -6,25 +6,25 @@ public class LookAroundState : BaseState<Hunter>
     {
         _lookAroundTime = lookAroundTime;
     }
-
+    public bool Finished { get; private set; }
     float _lookAroundTime;
-    float _currentTime_lk = 0f;
+
+    float _timer;
     public override void OnEnter()
     {
         controller.AgentPath.StopMovement();
 
-        _currentTime_lk = 0f;
-        controller.IsLookAround = true;
+        Finished = false;
+        _timer = 0f;
     }
 
     public override void Update()
     {
-        if (_currentTime_lk < _lookAroundTime)
-            _currentTime_lk += Time.deltaTime;
-        else controller.IsLookAround = false;
+        _timer += Time.deltaTime;
+        if (_timer >= _lookAroundTime) Finished = true;
     }
-
     public override void OnExit()
     {
+        Finished = false;
     }
 }

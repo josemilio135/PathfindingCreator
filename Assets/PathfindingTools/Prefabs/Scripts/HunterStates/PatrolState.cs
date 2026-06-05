@@ -1,32 +1,27 @@
 ﻿using UnityEngine;
-
 public class PatrolState : BaseState<Hunter>
 {
     AgentRunner _agent;
-
     Transform[] _waypoints;
-
     int _waypointIndex;
     int _waypointDir = 1;
+
     public PatrolState(StateMachine fsm, Hunter controller, Transform waypointsContainer) : base(fsm, controller)
     {
         _agent = controller.AgentPath;
         GetWayPoints(waypointsContainer);
     }
+
     public override void OnEnter()
     {
-        _agent.OnDestinationReached += NextWaypoint;
+        AdvanceWaypoint();
         GoToCurrentWaypoint();
     }
 
-    public override void OnExit()
-    {
-        _agent.OnDestinationReached -= NextWaypoint;
-    }
+    public override void Update() { }
 
-    public override void Update()
-    {
-    }
+    public override void OnExit() { }
+
     void GetWayPoints(Transform waypointsContainer)
     {
         if (waypointsContainer != null)
@@ -37,17 +32,19 @@ public class PatrolState : BaseState<Hunter>
         }
         else _waypoints = System.Array.Empty<Transform>();
     }
+
     void GoToCurrentWaypoint()
     {
         if (_waypoints.Length == 0) return;
         _agent.SetDestination(_waypoints[_waypointIndex].position);
     }
-    void NextWaypoint()
+
+    void AdvanceWaypoint()
     {
+        if (_waypoints.Length == 0) return;
         if (controller.PatrolPingPong)
         {
             _waypointIndex += _waypointDir;
-
             if (_waypointIndex >= _waypoints.Length)
             {
                 _waypointDir = -1;
@@ -60,8 +57,5 @@ public class PatrolState : BaseState<Hunter>
             }
         }
         else _waypointIndex = (_waypointIndex + 1) % _waypoints.Length;
-
-        GoToCurrentWaypoint();
     }
-
 }

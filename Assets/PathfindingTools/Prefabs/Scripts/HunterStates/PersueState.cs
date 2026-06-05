@@ -10,7 +10,6 @@ public class PersueState : BaseState<Hunter>
 
     public override void Update()
     {
-        Debug.Log("Persui player");
         controller.AgentPath.SetDestination(_target.transform.position);
 
 
@@ -26,6 +25,7 @@ public class PersueState : BaseState<Hunter>
     }
     public override void OnEnter()
     {
+        Debug.Log("Persui player");
     }
 
     public override void OnExit()

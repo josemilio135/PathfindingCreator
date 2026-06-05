@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 public class Hunter : Controller
 {
@@ -10,6 +11,9 @@ public class Hunter : Controller
     [Header("Target")]
     [SerializeField] AgentRunner _target;
 
+    [Header("Alert")]
+    [SerializeField] List<Hunter> _allies = new();
+
     [Header("Vision")]
     [SerializeField] LayerMask _obstacleMask;
     [SerializeField, Min(0)] float _viewRange = 10f;
@@ -21,16 +25,19 @@ public class Hunter : Controller
     [SerializeField] Color _rangeColor = Color.cyan;
     [SerializeField] Color _viewAngleColor = Color.blue;
 
+    public AgentRunner AgentPath { get; private set; }
     public bool PatrolPingPong => _patrolPingPong;
-    public AgentRunner AgentPath { get; set; }
+    public bool IsAlerted { get; private set; }
+    public Vector3 LastKnownPos { get; private set; }
 
     bool _isInRange;
     bool _isInsideAngle;
     bool _canSeeTarget;
 
+
     LookAroundState lookAroundState;
     PatrolState patrolState;
-    PersueState persueState;
+    PersueState pursueState;
     SearchState searchState;
 
     protected override void SetInitialState() => stateMachine.SetState(lookAroundState);
@@ -40,8 +47,8 @@ public class Hunter : Controller
 
         lookAroundState = new LookAroundState(stateMachine, this, _lookAroundTime);
         patrolState = new PatrolState(stateMachine, this, _waypointsContainer);
-        persueState = new PersueState(stateMachine, this, _target);
         searchState = new SearchState(stateMachine, this);
+        pursueState = new PersueState(stateMachine, this, _target);
 
     }
 
@@ -51,33 +58,36 @@ public class Hunter : Controller
     */
     protected override void SetTransitions()
     {
-        Any(persueState, new FuncPredicate(() => CanPursuiTarget()));
-        Any(searchState, new FuncPredicate(() => MustSearchTarget()));
+        Any(pursueState, new FuncPredicate(CanPursueTarget));
+        Any(searchState, new FuncPredicate(() => IsAlerted));
 
-        At(lookAroundState, patrolState, new FuncPredicate(() => !IsLookAround));
-        At(persueState, lookAroundState, new FuncPredicate(() => !CanSeeTarget()));
-        At(searchState, lookAroundState, new FuncPredicate(() => ArriveAlertPos()));
+        At(lookAroundState, patrolState, new FuncPredicate(() => lookAroundState.Finished));
+        At(patrolState, lookAroundState, new FuncPredicate(() => !AgentPath.IsMoving));
+        At(searchState, lookAroundState, new FuncPredicate(() => !AgentPath.IsMoving));
 
     }
 
-    public bool IsLookAround { get; set; }
-    public bool IsAlert { get; set; } = false;
-    public Vector3 LastKnownPos { get; private set; }
 
     public void AlertTo(Vector3 position)
     {
         LastKnownPos = position;
-        IsAlert = true;
+        IsAlerted = true;
     }
-    public void ClearAlert() => IsAlert = false;
 
+    public void ClearAlert() => IsAlerted = false;
+
+    void AlertAllies(Vector3 position)
+    {
+        foreach (var ally in _allies)
+            ally.AlertTo(position);
+    }
 
     #region Predicates 
-    bool MustSearchTarget() => IsAlert || (CanSeeTarget() && !CanPursuiTarget());
-    bool CanPursuiTarget() => CanSeeTarget() && AgentPath.HasDirectLOS(_target.transform.position);
-    bool ArriveAlertPos()
+    bool ShouldAlert() => IsAlerted && !CanPursueTarget();
+    bool CanPursueTarget()
     {
-        return true;
+        if (_target == null) return false;
+        return CanSeeTarget() && AgentPath.HasDirectLOS(_target.transform.position);
     }
     bool CanSeeTarget()
     {
@@ -94,6 +104,8 @@ public class Hunter : Controller
 
         _canSeeTarget = Perception.HasLineOfSight(eyes, targetPos, _obstacleMask);
         if (!_canSeeTarget) return false;
+
+        AlertAllies(targetPos);
 
         return true;
     }
