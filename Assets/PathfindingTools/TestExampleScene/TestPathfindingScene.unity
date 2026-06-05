@@ -33232,6 +33232,10 @@ PrefabInstance:
       propertyPath: _container
       value: 
       objectReference: {fileID: 24541619}
+    - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _slowDownDistance
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 8796284243452123913, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: m_Name
       value: Hunter

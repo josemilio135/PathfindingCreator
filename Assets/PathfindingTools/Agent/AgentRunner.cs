@@ -9,9 +9,12 @@ public class AgentRunner : MonoBehaviour
     [SerializeField] NodesContainer _container;
 
     [Header("Movement")]
-    [SerializeField] float _moveSpeed = 3f;
-    [SerializeField] float _rotationSpeed = 5f;
+    [SerializeField] float _moveSpeed = 5f;
+    [SerializeField] float _rotationSpeed = 10f;
     [SerializeField] float _nodeReachDistance = 0.2f;
+
+    [Header("Arrive")]
+    [SerializeField] float _slowDownDistance = 3f;
 
     [Header("Debug")]
     [SerializeField] bool _drawPath = true;
@@ -19,6 +22,8 @@ public class AgentRunner : MonoBehaviour
     [SerializeField] Color _currentNodeColor = Color.yellow;
 
     PathfindingRunner _pathfinding;
+    KinematicMovement _movement;
+
     List<BaseNode> _currentPath = new();
     int _currentIndex;
     WaypointNode _tempStart;
@@ -31,6 +36,8 @@ public class AgentRunner : MonoBehaviour
 
     void Awake()
     {
+        _movement = new KinematicMovement(_rotationSpeed);
+
         _pathfinding = gameObject.AddComponent<PathfindingRunner>();
         _pathfinding.CurrentSolverType = _solverType;
         _pathfinding.SetContainer(_container);
@@ -72,10 +79,7 @@ public class AgentRunner : MonoBehaviour
         _tempEnd.gameObject.SetActive(false);
     }
 
-    public void StopMovement()
-    {
-        _currentPath?.Clear();
-    }
+    public void StopMovement() => _currentPath?.Clear();
 
     void Update()
     {
@@ -93,9 +97,31 @@ public class AgentRunner : MonoBehaviour
             return;
         }
 
-        if (MoveTowards(_currentPath[_currentIndex].Position, _nodeReachDistance))
+        Vector3 nodePos = _currentPath[_currentIndex].Position;
+        float speed = _moveSpeed;
+
+        float remainingDistance = RemainingPathDistance();
+        if (remainingDistance < _slowDownDistance)
+        {
+            speed = Mathf.Max(_moveSpeed * (remainingDistance / _slowDownDistance), 0.1f);
+        }
+
+        if (_movement.MoveTowards(transform, nodePos, speed, _nodeReachDistance))
             _currentIndex++;
     }
+
+    float RemainingPathDistance()
+    {
+        if (_currentPath == null || _currentIndex >= _currentPath.Count) return 0f;
+
+        float distance = Vector3.Distance(transform.position, _currentPath[_currentIndex].Position);
+
+        for (int i = _currentIndex; i < _currentPath.Count - 1; i++)
+            distance += Vector3.Distance(_currentPath[i].Position, _currentPath[i + 1].Position);
+
+        return distance;
+    }
+
     Vector3 FindNearestNavegablePos(Vector3 target,
         float maxSearchRadius = 3f, float stepRadius = 0.25f, int samplesPerRing = 16)
     {
@@ -106,15 +132,13 @@ public class AgentRunner : MonoBehaviour
             for (int i = 0; i < samplesPerRing; i++)
             {
                 float angle = (360f / samplesPerRing) * i;
-
-                Vector3 candidate =
-                    target + Quaternion.Euler(0, angle, 0) * Vector3.forward * radius;
-
+                Vector3 candidate = target + Quaternion.Euler(0, angle, 0) * Vector3.forward * radius;
                 if (IsPositionWalkable(candidate)) return candidate;
             }
         }
         return target;
     }
+
     bool IsPositionWalkable(Vector3 position)
     {
         float radius = _container.Agent.Radius;
@@ -124,25 +148,6 @@ public class AgentRunner : MonoBehaviour
         Vector3 top = position + Vector3.up * (height - radius);
 
         return !Physics.CheckCapsule(bottom, top, radius, _container.Agent.ObstacleMask);
-    }
-
-    public bool MoveTowards(Vector3 target, float stoppingDistance)
-    {
-        Vector3 flat = new(target.x, transform.position.y, target.z);
-        float distance = Vector3.Distance(transform.position, flat);
-        if (distance <= stoppingDistance) return true;
-
-        Vector3 direction = (flat - transform.position).normalized;
-
-        if (direction != Vector3.zero)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation, targetRotation, _rotationSpeed * Time.deltaTime);
-        }
-
-        transform.position += direction * _moveSpeed * Time.deltaTime;
-        return false;
     }
 
     #region Gizmos

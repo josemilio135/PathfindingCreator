@@ -1,50 +1,49 @@
 using UnityEngine;
 
-[DisallowMultipleComponent]
 public class SteeringAgent : MonoBehaviour
 {
-    [SerializeField] protected float _maxSpeed = 7f;
-    [Min(0.01f)][SerializeField] protected float _mass = 1f;
+    [SerializeField] float _maxSpeed = 7f;
+    [Min(0.01f)][SerializeField] float _mass = 1f;
     [Space]
-    [SerializeField] protected float _maxSteeringForce = 7f;
+    [SerializeField] float _maxSteeringForce = 7f;
     [SerializeField] float _rotationSpeed = 10f;
 
-    Vector3 _velocity;
-    Vector3 _steeringForce;
-    public Vector3 Velocity => _velocity;
+    ForceMovement _motor;
+
+    public Vector3 Velocity => _motor.Velocity;
     public float MaxSpeed => _maxSpeed;
 
-    public void AddForce(Vector3 force) => _steeringForce += force;
-
-    public void ApplyMovement()
+    void Awake()
     {
-        _steeringForce = Vector3.ClampMagnitude(_steeringForce, _maxSteeringForce);
-
-        Vector3 acceleration = _steeringForce / _mass;
-
-        _velocity += acceleration * Time.deltaTime;
-
-        _velocity = Vector3.ClampMagnitude(_velocity, _maxSpeed);
-        _velocity.y = 0f;
-
-        transform.position += _velocity * Time.deltaTime;
-
-        if (_velocity.sqrMagnitude > 0.01f)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(_velocity.normalized);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 10f);
-        }
-        _steeringForce = Vector3.zero;
+        _motor = new ForceMovement(_maxSpeed, _mass, _maxSteeringForce, _rotationSpeed);
     }
+    public void ApplyMovement() => _motor.ApplyMovement(transform);
 
-    public void DoIdle(float brakeForce = 2f, bool instant = false)
-    {
-        if (instant)
-        {
-            _velocity = Vector3.zero;
-            return;
-        }
-        AddForce(SteeringBehaviours.Brake(_velocity, brakeForce));
-        if (_velocity.sqrMagnitude < 0.0025f) _velocity = Vector3.zero;
-    }
+    public void Seek(Vector3 targetPos)
+        => _motor.AddForce(SeekBehaviour.Calculate(transform.position, targetPos, _motor.Velocity, _maxSpeed));
+
+    public void Flee(Vector3 threatPos)
+        => _motor.AddForce(FleeBehaviour.Calculate(transform.position, threatPos, _motor.Velocity, _maxSpeed));
+
+    public void Arrive(Vector3 targetPos, float slowingRadius = 2f)
+        => _motor.AddForce(ArriveBehaviour.Calculate(transform.position, targetPos, _motor.Velocity, _maxSpeed, slowingRadius));
+
+    public void Pursuit(SteeringAgent prey)
+        => _motor.AddForce(PursuitBehaviour.Calculate(transform.position, _motor.Velocity, _maxSpeed, prey.transform.position, prey.Velocity));
+
+    public void Pursuit(Vector3 preyPosition, Vector3 preyVelocity)
+        => _motor.AddForce(PursuitBehaviour.Calculate(transform.position, _motor.Velocity, _maxSpeed, preyPosition, preyVelocity));
+
+    public void Evade(SteeringAgent pursuer)
+        => _motor.AddForce(EvadeBehaviour.Calculate(transform.position, _motor.Velocity, _maxSpeed, pursuer.transform.position, pursuer.Velocity));
+
+    public void Evade(Vector3 pursuerPosition, Vector3 pursuerVelocity)
+        => _motor.AddForce(EvadeBehaviour.Calculate(transform.position, _motor.Velocity, _maxSpeed, pursuerPosition, pursuerVelocity));
+
+    public void Wander(ref Vector3 wanderTarget, float radius = 2f, float distance = 4f, float jitter = 40f)
+        => _motor.AddForce(WanderBehaviour.Calculate(transform.position, transform.forward, _maxSpeed, ref wanderTarget, radius, distance, jitter));
+
+    public void SetIdle(float brakeForce = 2f, bool instant = false)
+        => _motor.SetIdle(brakeForce, instant);
+
 }

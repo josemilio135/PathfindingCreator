@@ -33,13 +33,13 @@ public class FlockAgent : SteeringAgent
 
         if (closeNeighbors.Count > 0)
         {
-            AddForce(CalculateSeparation(closeNeighbors) * _weightSeparation);
+           // AddForce(CalculateSeparation(closeNeighbors) * _weightSeparation);
         }
 
         if (neighbors.Count > 0)
         {
-            AddForce(CalculateAlignment(neighbors) * _weightAlignment);
-            AddForce(CalculateCohesion(neighbors) * _weightCohesion);
+           // AddForce(CalculateAlignment(neighbors) * _weightAlignment);
+           // AddForce(CalculateCohesion(neighbors) * _weightCohesion);
         }
     }
     private Vector3 CalculateSeparation(List<FlockAgent> closeNeighbors)

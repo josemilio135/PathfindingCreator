@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 public class Player : MonoBehaviour
 {
     bool InputSetDestination => Mouse.current.leftButton.wasPressedThisFrame;
+    bool InputStopMove => Keyboard.current.escapeKey.wasPressedThisFrame;
 
 
     AgentRunner _agent;
@@ -20,6 +21,7 @@ public class Player : MonoBehaviour
     private void Update()
     {
         if (InputSetDestination) SetDestination();
+        if (InputStopMove) _agent.StopMovement();
     }
     void SetDestination()
     {
