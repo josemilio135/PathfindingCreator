@@ -1,7 +1,7 @@
-﻿using System.IO;
+﻿#if UNITY_EDITOR
+using System.IO;
 using UnityEditor;
 using UnityEngine;
-
 public static class ScriptableAssetUtility
 {
     public enum CreateLocation
@@ -76,3 +76,5 @@ public static class ScriptableAssetUtility
         }
     }
 }
+
+#endif

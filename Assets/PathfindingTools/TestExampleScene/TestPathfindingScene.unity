@@ -6619,7 +6619,7 @@ GameObject:
   m_Component:
   - component: {fileID: 602229547}
   m_Layer: 0
-  m_Name: Scene
+  m_Name: Environment
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9563,8 +9563,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -10, y: -10}
-  m_SizeDelta: {x: 317.689, y: 325.117}
+  m_AnchoredPosition: {x: -50, y: -50}
+  m_SizeDelta: {x: 366.443, y: 385.592}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &850127795
 MonoBehaviour:
@@ -9629,7 +9629,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 37.85
+  m_fontSize: 40
   m_fontSizeBase: 31.96
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -9667,7 +9667,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: -1.4355164, y: 5.295044, z: 8.976318, w: -1.501831}
+  m_margin: {x: -1.4355164, y: 5.295044, z: 8.976318, w: -13.773987}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -12843,7 +12843,7 @@ Transform:
   m_GameObject: {fileID: 1083246716}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -107, y: 19.4, z: -12.01}
+  m_LocalPosition: {x: -93.5, y: 29.2, z: -23.7}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -23524,8 +23524,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -10, y: -9.999878}
-  m_SizeDelta: {x: 343.0352, y: 349.9089}
+  m_AnchoredPosition: {x: -50, y: -50}
+  m_SizeDelta: {x: 395.679, y: 414.995}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &1809435009
 MonoBehaviour:
@@ -30580,6 +30580,8 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1083246718}
+  - {fileID: 1986586992}
+  - {fileID: 766702318}
   - {fileID: 410087041}
   - {fileID: 832575519}
   - {fileID: 602229547}
@@ -30594,5 +30596,3 @@ SceneRoots:
   - {fileID: 1852104116}
   - {fileID: 4247990207225029432}
   - {fileID: 24541620}
-  - {fileID: 1986586992}
-  - {fileID: 766702318}
