@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   AgentName: Hunter
   Height: 2
-  Radius: 0.33
+  Radius: 0.5
   ObstacleMask:
     serializedVersion: 2
     m_Bits: 128
