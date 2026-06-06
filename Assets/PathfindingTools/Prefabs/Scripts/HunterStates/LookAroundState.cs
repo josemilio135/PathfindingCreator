@@ -24,6 +24,7 @@ public class LookAroundState : BaseState<Hunter>
         _startRot = controller.transform.rotation;
 
         controller.SetStateText("Mmm...");
+        controller.SetColorFOV("D6D781");
     }
 
     public override void Update()

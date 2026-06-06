@@ -22,6 +22,7 @@ public class PatrolState : BaseState<Hunter>
         GoToCurrentWaypoint();
 
         controller.SetStateText("...");
+        controller.SetColorFOV("818167");
     }
 
     public override void Update() { }

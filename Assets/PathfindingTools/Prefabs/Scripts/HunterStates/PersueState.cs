@@ -13,7 +13,8 @@ public class PersueState : BaseState<Hunter>
         controller.IsPursue = true;
 
         Debug.Log("Persui player");
-        controller.SetStateText("!");
+        controller.SetStateText("!"); 
+        controller.SetColorFOV("FF3B00");
     }
 
     public override void Update()

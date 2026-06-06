@@ -12,6 +12,7 @@ public class FOV_Mesh : MonoBehaviour
     [SerializeField, Min(0f)] float _edgeThreshold = 0.5f;
 
     MeshFilter _meshFilter;
+    MeshRenderer _meshRenderer;
     Mesh _mesh;
 
     struct ViewCastInfo
@@ -21,37 +22,74 @@ public class FOV_Mesh : MonoBehaviour
         public float dst;
         public float angle;
     }
+    struct EdgeInfo { public Vector3 pointA, pointB; }
 
-    void Awake()
-    {
-        Init();
-    }
-
+    void Awake() => Init();
     void OnValidate()
     {
         Init();
         UpdateMesh();
     }
 
+#if UNITY_EDITOR
+    Vector3 _lastPosition;
+    Quaternion _lastRotation;
+#endif
+
+    void LateUpdate()
+    {
+        if (Application.isPlaying)
+        {
+            UpdateMesh();
+            return;
+        }
+
+#if UNITY_EDITOR
+        if (_lastPosition != transform.position || _lastRotation != transform.rotation)
+        {
+            _lastPosition = transform.position;
+            _lastRotation = transform.rotation;
+            UpdateMesh();
+        }
+#endif
+    }
     void Init()
     {
-        if (_meshFilter == null) _meshFilter = GetComponent<MeshFilter>();
-        if (_mesh == null) 
+        if (_meshFilter == null)
+            _meshFilter = GetComponent<MeshFilter>();
+
+        if (_meshRenderer == null)
+            _meshRenderer = GetComponent<MeshRenderer>();
+
+        if (_meshFilter.sharedMesh == null)
         {
             _mesh = new Mesh();
-            _meshFilter.mesh = _mesh; 
+            _mesh.name = "FOV Mesh";
+            _meshFilter.sharedMesh = _mesh;
         }
+        else _mesh = _meshFilter.sharedMesh;
     }
 
-    public void SetConfig(float distance, float angle, LayerMask obstacleMask)
+    public void SetConfig(float distance, float angle, LayerMask obstacleMask, Vector3 eyesOffset)
     {
         _distance = distance;
         _angle = angle;
         _obstacleMask = obstacleMask;
+        transform.localPosition = eyesOffset;
+
+        if (_mesh != null) UpdateMesh();
+    }
+
+    public void SetColor(Color color)
+    {
+        if (_meshRenderer.material != null)
+            _meshRenderer.SetColor(color);
     }
 
     public void UpdateMesh()
     {
+        if (_mesh == null) Init();
+
         float halfAngle = _angle * 0.5f;
         float angleStep = _angle / _arcSegments;
 
@@ -131,11 +169,9 @@ public class FOV_Mesh : MonoBehaviour
 
     Vector3 DirFromAngle(float globalAngle)
     {
-        return new Vector3(
+        return new(
             Mathf.Sin(globalAngle * Mathf.Deg2Rad),
-            0f
-            , Mathf.Cos(globalAngle * Mathf.Deg2Rad));
+            0f,
+            Mathf.Cos(globalAngle * Mathf.Deg2Rad));
     }
-
-    struct EdgeInfo { public Vector3 pointA, pointB; }
 }

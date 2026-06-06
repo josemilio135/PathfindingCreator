@@ -12,6 +12,7 @@
         controller.AgentPath.SetDestination(controller.LastKnownPos);
 
         controller.SetStateText("Alert!");
+        controller.SetColorFOV("FFFF00");
     }
 
     public override void Update() { }

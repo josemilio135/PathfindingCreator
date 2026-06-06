@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+
 public class Hunter : Controller
 {
-
     [Header("Patrol")]
     [SerializeField] Transform _waypointsContainer;
     [SerializeField] float _lookAroundTime = 2f;
@@ -17,7 +17,7 @@ public class Hunter : Controller
     [SerializeField] List<Hunter> _allies = new();
 
     [Header("Vision")]
-    [SerializeField] FOV_Mesh fovMesh;
+    [SerializeField] FOV_Mesh _fovMesh;
     [SerializeField, Min(0)] float _viewRange = 10f;
     [SerializeField, Range(0f, 360f)] float _fovAngle = 90f;
     [SerializeField] Vector3 _eyesOffset = new(0f, 1.5f, 0f);
@@ -25,10 +25,6 @@ public class Hunter : Controller
 
     [Header("Debug")]
     [SerializeField] TMP_Text stateText;
-    [SerializeField] bool _drawVision = true;
-    [SerializeField] bool _drawRange = false;
-    [SerializeField] Color _rangeColor = Color.cyan;
-    [SerializeField] Color _viewAngleColor = Color.blue;
 
     public AgentRunner AgentPath { get; private set; }
     public bool PatrolPingPong => _patrolPingPong;
@@ -40,38 +36,38 @@ public class Hunter : Controller
     bool _isInsideAngle;
     bool _canSeeTarget;
 
-
     LookAroundState lookAroundState;
     PatrolState patrolState;
     PersueState pursueState;
     GoToAlertState goToAlertState;
 
     protected override void SetInitialState() => stateMachine.SetState(lookAroundState);
+
     protected override void CreateStates()
     {
         AgentPath = GetComponent<AgentRunner>();
+        if (_fovMesh) _fovMesh.SetConfig(_viewRange, _fovAngle, _obstacleMask, _eyesOffset);
+
 
         lookAroundState = new LookAroundState(stateMachine, this, _lookAroundTime, searchRotationAngle);
         patrolState = new PatrolState(stateMachine, this, _waypointsContainer);
         goToAlertState = new GoToAlertState(stateMachine, this);
         pursueState = new PersueState(stateMachine, this, _target);
-
     }
+
     protected override void SetTransitions()
     {
         Any(pursueState, new FuncPredicate(CanPursueTarget));
         Any(goToAlertState, new FuncPredicate(() => ShouldSearch()));
 
         At(lookAroundState, patrolState, new FuncPredicate(() => lookAroundState.Finished));
-
         At(patrolState, lookAroundState, new FuncPredicate(() => patrolState.ArriveToNextPoint));
         At(goToAlertState, lookAroundState, new FuncPredicate(() => goToAlertState.ArriveToAlertPoint));
-
-
         At(pursueState, goToAlertState, new FuncPredicate(() => !CanSeeTarget() && IsPursue));
     }
 
 
+    #region Alert
     void AlertAllies(Vector3 position)
     {
         AlertTo(position);
@@ -81,25 +77,26 @@ public class Hunter : Controller
             ally.AlertTo(position);
         }
     }
+
     public void AlertTo(Vector3 position)
     {
         LastKnownPos = position;
         IsAlerted = true;
     }
-    public void SetStateText(string text) => stateText.text = text;
+    #endregion
 
-
-    #region Predicates 
+    #region Predicates
     bool ShouldSearch() => IsAlerted && !IsPursue;
+
     bool CanPursueTarget()
     {
         if (_target == null) return false;
         if (IsPursue) return false;
         if (!CanSeeTarget()) return false;
         AlertAllies(_target.transform.position);
-
         return AgentPath.HasDirectLOS(_target.transform.position);
     }
+
     bool CanSeeTarget()
     {
         _isInRange = false;
@@ -109,7 +106,7 @@ public class Hunter : Controller
         if (_target == null) return false;
 
         Vector3 eyes = transform.position + _eyesOffset;
-        Vector3 targetPos = _target.gameObject.transform.position + _eyesOffset;
+        Vector3 targetPos = _target.transform.position + _eyesOffset;
 
         _isInRange = Perception.IsInRange(eyes, targetPos, _viewRange);
         if (!_isInRange) return false;
@@ -118,32 +115,30 @@ public class Hunter : Controller
         if (!_isInsideAngle) return false;
 
         _canSeeTarget = Perception.HasLineOfSight(eyes, targetPos, _obstacleMask);
-        if (!_canSeeTarget) return false;
-
-        return true;
+        return _canSeeTarget;
     }
     #endregion
 
-    #region Gizmos
-    void OnDrawGizmos()
+    #region Debug Visuals
+
+    void OnValidate()
     {
-        Vector3 eyes = transform.position + _eyesOffset;
+        if (_fovMesh == null) return;
 
-        if (_drawRange)
-        {
-            Gizmos.color = _isInRange ? _rangeColor : Color.gray;
-            Gizmos.DrawWireSphere(eyes, _viewRange);
-        }
+        _fovMesh.SetConfig(
+            _viewRange,
+            _fovAngle,
+            _obstacleMask,
+            _eyesOffset);
+    }
+    public void SetStateText(string text) => stateText.text = text;
+    public void SetColorFOV(string hexadecimal, float alpha = .2f)
+    {
+        if (_fovMesh == null) return;
+        ColorUtility.TryParseHtmlString("#" + hexadecimal, out Color color);
+        color.a = alpha;
 
-        if (_drawVision)
-        {
-            Gizmos.color = _isInsideAngle ? _viewAngleColor : Color.gray;
-            Gizmos.DrawRay(eyes, Quaternion.Euler(0f, -_fovAngle * 0.5f, 0f) * transform.forward * _viewRange);
-            Gizmos.DrawRay(eyes, Quaternion.Euler(0f, _fovAngle * 0.5f, 0f) * transform.forward * _viewRange);
-
-            Gizmos.color = Color.white;
-            Gizmos.DrawSphere(eyes, 0.1f);
-        }
+        _fovMesh.SetColor(color);
     }
     #endregion
 }
