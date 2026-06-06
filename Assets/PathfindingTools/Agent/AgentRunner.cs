@@ -83,6 +83,9 @@ public class AgentRunner : MonoBehaviour
         _tempStart.Connect(_pathfinding.Container);
         _tempEnd.Connect(_pathfinding.Container);
 
+        if (_tempStart.Neighbors.Count == 0) _tempStart.Disconnect(_pathfinding.Container);
+        if (_tempEnd.Neighbors.Count == 0) _tempEnd.Disconnect(_pathfinding.Container);
+
         _currentPath = _pathfinding.FindPath<BaseNode>(transform.position, destination);
         _currentIndex = 0;
 

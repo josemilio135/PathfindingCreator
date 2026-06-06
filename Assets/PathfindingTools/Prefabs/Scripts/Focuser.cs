@@ -7,11 +7,13 @@ public class Focuser : MonoBehaviour
     [SerializeField] List<GameObject> targetsList = new();
 
     CameraController _camera;
-    bool InputChangeCamMode => Keyboard.current.spaceKey.wasPressedThisFrame;
+    bool InputToggleFocus => Keyboard.current.fKey.wasPressedThisFrame;
+    bool InputExitFocus => Mouse.current.middleButton.wasPressedThisFrame;
     bool InputPrevTarget => Keyboard.current.qKey.wasPressedThisFrame
                          || Keyboard.current.leftArrowKey.wasPressedThisFrame;
     bool InputNextTarget => Keyboard.current.eKey.wasPressedThisFrame
                          || Keyboard.current.rightArrowKey.wasPressedThisFrame;
+
 
     bool _isFocusMode = false;
     int _targetIndex = 0;
@@ -25,39 +27,65 @@ public class Focuser : MonoBehaviour
     {
         if (!_camera) return;
 
-        if (InputChangeCamMode) ToggleFocusMode();
+        if (InputToggleFocus)
+        {
+            ToggleFocusMode();
+            return;
+        }
 
+        if (_isFocusMode && InputExitFocus)
+        {
+            ToggleFocusMode();
+            return;
+        }
+
+        if (InputPrevTarget)
+        {
+            if (!_isFocusMode) EnterFocusMode();
+
+            SetFocusTarget(false);
+            return;
+        }
+
+        if (InputNextTarget)
+        {
+            if (!_isFocusMode) EnterFocusMode();
+
+            SetFocusTarget(true);
+            return;
+        }
+    }
+    void EnterFocusMode()
+    {
+        if (_isFocusMode) return;
+        if (targetsList.Count == 0) return;
+
+        _isFocusMode = true;
+        _camera.SetTarget(targetsList[_targetIndex].transform);
+    }
+
+    void ExitFocusMode()
+    {
         if (!_isFocusMode) return;
 
-        if (InputPrevTarget) SetFocusTarget(false);
+        _isFocusMode = false;
+        _camera.SetTopDown();
+    }
 
-        if (InputNextTarget) SetFocusTarget(true);
+    void ToggleFocusMode()
+    {
+        if (_isFocusMode) ExitFocusMode();
+        else EnterFocusMode();
     }
     void SetFocusTarget(bool next)
     {
         if (targetsList.Count == 0) return;
 
-        if (next)
-        {
-            _targetIndex = (_targetIndex + 1) % targetsList.Count;
-        }
-        else
-        {
-            _targetIndex = (_targetIndex - 1 + targetsList.Count) % targetsList.Count;
-        }
+        if (next) _targetIndex = (_targetIndex + 1) % targetsList.Count;
+
+        else _targetIndex = (_targetIndex - 1 + targetsList.Count) % targetsList.Count;
 
         _camera.SetTarget(targetsList[_targetIndex].transform);
     }
 
-    void ToggleFocusMode()
-    {
-        _isFocusMode = !_isFocusMode;
-
-        if (_isFocusMode)
-        {
-            if (targetsList.Count == 0) return;
-            _camera.SetTarget(targetsList[_targetIndex].transform);
-        }
-        else _camera.SetTopDown();
-    }
 }
