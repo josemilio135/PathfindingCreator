@@ -17,10 +17,11 @@ public class Hunter : Controller
     [SerializeField] List<Hunter> _allies = new();
 
     [Header("Vision")]
-    [SerializeField] LayerMask _obstacleMask;
+    [SerializeField] FOV_Mesh fovMesh;
     [SerializeField, Min(0)] float _viewRange = 10f;
     [SerializeField, Range(0f, 360f)] float _fovAngle = 90f;
     [SerializeField] Vector3 _eyesOffset = new(0f, 1.5f, 0f);
+    [SerializeField] LayerMask _obstacleMask;
 
     [Header("Debug")]
     [SerializeField] TMP_Text stateText;
