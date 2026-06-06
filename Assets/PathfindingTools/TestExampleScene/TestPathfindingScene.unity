@@ -7646,6 +7646,10 @@ PrefabInstance:
       value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _lookAroundTime
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: _allies.Array.size
       value: 4
       objectReference: {fileID: 0}
@@ -7655,7 +7659,7 @@ PrefabInstance:
       objectReference: {fileID: 1753512823}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: searchRotationAngle
-      value: 30
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: '_allies.Array.data[0]'
@@ -12405,6 +12409,10 @@ PrefabInstance:
       value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _lookAroundTime
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: _allies.Array.size
       value: 4
       objectReference: {fileID: 0}
@@ -12414,7 +12422,7 @@ PrefabInstance:
       objectReference: {fileID: 1852104116}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: searchRotationAngle
-      value: 30
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: '_allies.Array.data[0]'
@@ -14310,6 +14318,10 @@ PrefabInstance:
       value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _lookAroundTime
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: _allies.Array.size
       value: 4
       objectReference: {fileID: 0}
@@ -14319,7 +14331,7 @@ PrefabInstance:
       objectReference: {fileID: 1699242894}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: searchRotationAngle
-      value: 30
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: '_allies.Array.data[0]'
@@ -33192,6 +33204,10 @@ PrefabInstance:
       value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _lookAroundTime
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: _allies.Array.size
       value: 4
       objectReference: {fileID: 0}
@@ -33201,7 +33217,7 @@ PrefabInstance:
       objectReference: {fileID: 911214446}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: searchRotationAngle
-      value: 30
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 4022376599798596564, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: '_allies.Array.data[0]'

@@ -31,15 +31,14 @@ public class LookAroundState : BaseState<Hunter>
         _timer += Time.deltaTime;
         if (_timer >= _lookAroundTime) Finished = true;
 
-        float currentAngle =
-            Mathf.PingPong(_timer * (_timer/_lookAroundTime), _searchRotationAngle * 2f) - _searchRotationAngle;
+        float t = _timer / _lookAroundTime;         
+        float currentAngle = Mathf.Sin(t * Mathf.PI * 2f) * _searchRotationAngle;
 
-        controller.transform.rotation =
+        controller.transform.rotation = 
             _startRot * Quaternion.Euler(0f, currentAngle, 0f);
 
     }
     public override void OnExit()
     {
-        // Finished = false;k
     }
 }

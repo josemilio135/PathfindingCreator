@@ -58,10 +58,13 @@ public class StateMachine
     {
         foreach (var transition in anyTransition)
         {
+            if (transition.To == currentState.State) continue;
+
             if (transition.Condition.Evaluate()) return transition; //Global
         }
         foreach (var transition in currentState.Transitions)
         {
+            if (transition.To == currentState.State) continue;
             if (transition.Condition.Evaluate()) return transition; //Local
         }
         return null;

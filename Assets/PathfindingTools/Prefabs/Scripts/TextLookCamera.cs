@@ -7,6 +7,6 @@ public class TextLookCamera : MonoBehaviour
         var dir = Camera.main.transform.position - transform.position;
         dir.y = 0;
 
-        transform.rotation = Quaternion.LookRotation(dir);
+        transform.rotation = Quaternion.LookRotation(-dir);
     }
 }

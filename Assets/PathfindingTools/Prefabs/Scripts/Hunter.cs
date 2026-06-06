@@ -56,20 +56,13 @@ public class Hunter : Controller
         pursueState = new PersueState(stateMachine, this, _target);
 
     }
-
-    /* 
-     * 1. LookAround -> esperar en cada waypoint   //rota hacia ambos lados viendo en 360 en 2 tandas
-     * 5. Si fui alertado y llego y no está el jugador, me regreso
-    */
     protected override void SetTransitions()
     {
         Any(pursueState, new FuncPredicate(CanPursueTarget));
         Any(goToAlertState, new FuncPredicate(() => ShouldSearch()));
 
-        //patrullo despues de revisar
         At(lookAroundState, patrolState, new FuncPredicate(() => lookAroundState.Finished));
 
-        //Reviso si estaba patrullando o llegué a la alerta y ahora miro alrededor
         At(patrolState, lookAroundState, new FuncPredicate(() => patrolState.ArriveToNextPoint));
         At(goToAlertState, lookAroundState, new FuncPredicate(() => goToAlertState.ArriveToAlertPoint));
 
@@ -80,10 +73,10 @@ public class Hunter : Controller
 
     void AlertAllies(Vector3 position)
     {
+        AlertTo(position);
         foreach (var ally in _allies)
         {
             if (ally.IsAlerted) continue;
-            AlertTo(position);
             ally.AlertTo(position);
         }
     }
@@ -92,6 +85,7 @@ public class Hunter : Controller
         LastKnownPos = position;
         IsAlerted = true;
     }
+    public void SetStateText(string text) => stateText.text = text;
 
 
     #region Predicates 
@@ -100,11 +94,17 @@ public class Hunter : Controller
     {
         if (_target == null) return false;
         if (IsPursue) return false;
+        if (!CanSeeTarget()) return false;
+        AlertAllies(_target.transform.position);
 
-        return CanSeeTarget() && AgentPath.HasDirectLOS(_target.transform.position);
+        return AgentPath.HasDirectLOS(_target.transform.position);
     }
     bool CanSeeTarget()
     {
+        _isInRange = false;
+        _isInsideAngle = false;
+        _canSeeTarget = false;
+
         if (_target == null) return false;
 
         Vector3 eyes = transform.position + _eyesOffset;
@@ -119,12 +119,9 @@ public class Hunter : Controller
         _canSeeTarget = Perception.HasLineOfSight(eyes, targetPos, _obstacleMask);
         if (!_canSeeTarget) return false;
 
-        AlertAllies(_target.gameObject.transform.position);
-
         return true;
     }
     #endregion
-    public void SetStateText(string text) => stateText.text = text;
 
     #region Gizmos
     void OnDrawGizmos()
