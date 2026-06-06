@@ -11,7 +11,6 @@ public class PersueState : BaseState<Hunter>
     public override void OnEnter()
     {
         controller.IsPursue = true;
-        controller.AlertTo(_target.transform.position);
 
         Debug.Log("Persui player");
         controller.SetStateText("!");

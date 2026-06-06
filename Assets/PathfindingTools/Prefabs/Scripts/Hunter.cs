@@ -7,6 +7,7 @@ public class Hunter : Controller
     [Header("Patrol")]
     [SerializeField] Transform _waypointsContainer;
     [SerializeField] float _lookAroundTime = 2f;
+    [SerializeField] float searchRotationAngle = 90f;
     [SerializeField] bool _patrolPingPong = true;
 
     [Header("Target")]
@@ -24,6 +25,7 @@ public class Hunter : Controller
     [Header("Debug")]
     [SerializeField] TMP_Text stateText;
     [SerializeField] bool _drawVision = true;
+    [SerializeField] bool _drawRange = false;
     [SerializeField] Color _rangeColor = Color.cyan;
     [SerializeField] Color _viewAngleColor = Color.blue;
 
@@ -41,16 +43,16 @@ public class Hunter : Controller
     LookAroundState lookAroundState;
     PatrolState patrolState;
     PersueState pursueState;
-    SearchState goToAlertState;
+    GoToAlertState goToAlertState;
 
     protected override void SetInitialState() => stateMachine.SetState(lookAroundState);
     protected override void CreateStates()
     {
         AgentPath = GetComponent<AgentRunner>();
 
-        lookAroundState = new LookAroundState(stateMachine, this, _lookAroundTime);
+        lookAroundState = new LookAroundState(stateMachine, this, _lookAroundTime, searchRotationAngle);
         patrolState = new PatrolState(stateMachine, this, _waypointsContainer);
-        goToAlertState = new SearchState(stateMachine, this);
+        goToAlertState = new GoToAlertState(stateMachine, this);
         pursueState = new PersueState(stateMachine, this, _target);
 
     }
@@ -61,45 +63,44 @@ public class Hunter : Controller
     */
     protected override void SetTransitions()
     {
-        Any(goToAlertState, new FuncPredicate(() => ShouldSearch()));
         Any(pursueState, new FuncPredicate(CanPursueTarget));
+        Any(goToAlertState, new FuncPredicate(() => ShouldSearch()));
 
+        //patrullo despues de revisar
         At(lookAroundState, patrolState, new FuncPredicate(() => lookAroundState.Finished));
-        At(pursueState, goToAlertState, new FuncPredicate(() => !CanSeeTarget()));
 
-        At(patrolState, lookAroundState, new FuncPredicate(() => !AgentPath.IsMoving));
-        At(goToAlertState, lookAroundState, new FuncPredicate(() => !AgentPath.IsMoving));
+        //Reviso si estaba patrullando o llegué a la alerta y ahora miro alrededor
+        At(patrolState, lookAroundState, new FuncPredicate(() => patrolState.ArriveToNextPoint));
+        At(goToAlertState, lookAroundState, new FuncPredicate(() => goToAlertState.ArriveToAlertPoint));
 
+
+        At(pursueState, goToAlertState, new FuncPredicate(() => !CanSeeTarget() && IsPursue));
     }
 
 
-    public void AlertTo(Vector3 position)
-    {
-        if (ShouldSearch()) return;
-        LastKnownPos = position;
-        IsAlerted = true;
-    }
     void AlertAllies(Vector3 position)
     {
         foreach (var ally in _allies)
         {
-            if (ally == this) continue;
+            if (ally.IsAlerted) continue;
+            AlertTo(position);
             ally.AlertTo(position);
         }
     }
-
-    public void SetStateText(string text)
+    public void AlertTo(Vector3 position)
     {
-        stateText.text = text;
+        LastKnownPos = position;
+        IsAlerted = true;
     }
+
 
     #region Predicates 
     bool ShouldSearch() => IsAlerted && !IsPursue;
     bool CanPursueTarget()
     {
         if (_target == null) return false;
-
         if (IsPursue) return false;
+
         return CanSeeTarget() && AgentPath.HasDirectLOS(_target.transform.position);
     }
     bool CanSeeTarget()
@@ -118,28 +119,33 @@ public class Hunter : Controller
         _canSeeTarget = Perception.HasLineOfSight(eyes, targetPos, _obstacleMask);
         if (!_canSeeTarget) return false;
 
-        AlertAllies(targetPos);
+        AlertAllies(_target.gameObject.transform.position);
 
         return true;
     }
     #endregion
+    public void SetStateText(string text) => stateText.text = text;
 
     #region Gizmos
     void OnDrawGizmos()
     {
-        if (!_drawVision) return;
-
         Vector3 eyes = transform.position + _eyesOffset;
 
-        Gizmos.color = _isInRange ? _rangeColor : Color.gray;
-        Gizmos.DrawWireSphere(eyes, _viewRange);
+        if (_drawRange)
+        {
+            Gizmos.color = _isInRange ? _rangeColor : Color.gray;
+            Gizmos.DrawWireSphere(eyes, _viewRange);
+        }
 
-        Gizmos.color = _isInsideAngle ? _viewAngleColor : Color.gray;
-        Gizmos.DrawRay(eyes, Quaternion.Euler(0f, -_fovAngle * 0.5f, 0f) * transform.forward * _viewRange);
-        Gizmos.DrawRay(eyes, Quaternion.Euler(0f, _fovAngle * 0.5f, 0f) * transform.forward * _viewRange);
+        if (_drawVision)
+        {
+            Gizmos.color = _isInsideAngle ? _viewAngleColor : Color.gray;
+            Gizmos.DrawRay(eyes, Quaternion.Euler(0f, -_fovAngle * 0.5f, 0f) * transform.forward * _viewRange);
+            Gizmos.DrawRay(eyes, Quaternion.Euler(0f, _fovAngle * 0.5f, 0f) * transform.forward * _viewRange);
 
-        Gizmos.color = Color.white;
-        Gizmos.DrawSphere(eyes, 0.1f);
+            Gizmos.color = Color.white;
+            Gizmos.DrawSphere(eyes, 0.1f);
+        }
     }
     #endregion
 }

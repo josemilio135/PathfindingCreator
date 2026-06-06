@@ -3,8 +3,9 @@ public class PatrolState : BaseState<Hunter>
 {
     AgentRunner _agent;
     Transform[] _waypoints;
-    int _waypointIndex;
+    int _waypointIndex = -1;
     int _waypointDir = 1;
+    public bool ArriveToNextPoint { get; private set; } = false;
 
     public PatrolState(StateMachine fsm, Hunter controller, Transform waypointsContainer) : base(fsm, controller)
     {
@@ -14,6 +15,9 @@ public class PatrolState : BaseState<Hunter>
 
     public override void OnEnter()
     {
+        ArriveToNextPoint = false;
+        _agent.OnDestinationReached += ArriveToPoint;
+
         AdvanceWaypoint();
         GoToCurrentWaypoint();
 
@@ -22,8 +26,12 @@ public class PatrolState : BaseState<Hunter>
 
     public override void Update() { }
 
-    public override void OnExit() { }
+    public override void OnExit()
+    {
+        _agent.OnDestinationReached -= ArriveToPoint;
+    }
 
+    void ArriveToPoint() => ArriveToNextPoint = true;
     void GetWayPoints(Transform waypointsContainer)
     {
         if (waypointsContainer != null)
@@ -35,12 +43,12 @@ public class PatrolState : BaseState<Hunter>
         else _waypoints = System.Array.Empty<Transform>();
     }
 
+
     void GoToCurrentWaypoint()
     {
         if (_waypoints.Length == 0) return;
         _agent.SetDestination(_waypoints[_waypointIndex].position);
     }
-
     void AdvanceWaypoint()
     {
         if (_waypoints.Length == 0) return;
