@@ -490,6 +490,6 @@ MonoBehaviour:
   _rotationSpeed: 5
   _nodeReachDistance: 0.2
   _slowDownDistance: 0.1
-  _drawPath: 1
+  _drawPath: 0
   _pathColor: {r: 0.9607843, g: 0.8980392, b: 0.36862746, a: 0.5882353}
   _currentNodeColor: {r: 0, g: 0.78431374, b: 1, a: 0.6313726}

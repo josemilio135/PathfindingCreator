@@ -29,7 +29,7 @@ public class Hunter : Controller
 
     public AgentRunner AgentPath { get; private set; }
     public bool PatrolPingPong => _patrolPingPong;
-    public bool IsAlerted { get;  set; }
+    public bool IsAlerted { get; set; }
     public bool IsPursue { get; set; }
     public Vector3 LastKnownPos { get; set; }
 
@@ -41,7 +41,7 @@ public class Hunter : Controller
     LookAroundState lookAroundState;
     PatrolState patrolState;
     PersueState pursueState;
-    SearchState searchState;
+    SearchState goToAlertState;
 
     protected override void SetInitialState() => stateMachine.SetState(lookAroundState);
     protected override void CreateStates()
@@ -50,7 +50,7 @@ public class Hunter : Controller
 
         lookAroundState = new LookAroundState(stateMachine, this, _lookAroundTime);
         patrolState = new PatrolState(stateMachine, this, _waypointsContainer);
-        searchState = new SearchState(stateMachine, this);
+        goToAlertState = new SearchState(stateMachine, this);
         pursueState = new PersueState(stateMachine, this, _target);
 
     }
@@ -61,27 +61,31 @@ public class Hunter : Controller
     */
     protected override void SetTransitions()
     {
+        Any(goToAlertState, new FuncPredicate(() => ShouldSearch()));
         Any(pursueState, new FuncPredicate(CanPursueTarget));
-        Any(searchState, new FuncPredicate(() => ShouldSearch()));
 
         At(lookAroundState, patrolState, new FuncPredicate(() => lookAroundState.Finished));
-        At(pursueState, searchState, new FuncPredicate(() => !CanSeeTarget()));
+        At(pursueState, goToAlertState, new FuncPredicate(() => !CanSeeTarget()));
 
         At(patrolState, lookAroundState, new FuncPredicate(() => !AgentPath.IsMoving));
-        At(searchState, lookAroundState, new FuncPredicate(() => !AgentPath.IsMoving));
+        At(goToAlertState, lookAroundState, new FuncPredicate(() => !AgentPath.IsMoving));
 
     }
 
 
     public void AlertTo(Vector3 position)
     {
+        if (ShouldSearch()) return;
         LastKnownPos = position;
         IsAlerted = true;
     }
     void AlertAllies(Vector3 position)
     {
         foreach (var ally in _allies)
+        {
+            if (ally == this) continue;
             ally.AlertTo(position);
+        }
     }
 
     public void SetStateText(string text)
