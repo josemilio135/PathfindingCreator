@@ -136,15 +136,15 @@ public class NodesContainer_Editor : Editor
         DrawSolverEstimate("Dijkstra", "O(E log N)", container.EstimatedDijkstra);
         DrawSolverEstimate("A*", "O(E log N)", container.EstimatedAStar);
         DrawSolverEstimate("Theta*", "O(E log N) + LOS", container.EstimatedThetaStar);
-        DrawSolverEstimate("Theta* Smooth", "O(E log N) + LOS² ", container.EstimatedThetaStarSmooth);
+        DrawSolverEstimate("Theta* Smooth", "O(E log N) + LOS²", container.EstimatedThetaStarSmooth);
         EditorGUILayout.EndVertical();
     }
 
     void DrawSolverEstimate(string solver, string complexity, int operations)
     {
         EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField(solver, GUILayout.Width(120));
-        EditorGUILayout.LabelField(complexity, GUILayout.Width(100));
+        EditorGUILayout.LabelField(solver, GUILayout.Width(100));
+        EditorGUILayout.LabelField(complexity, GUILayout.Width(120));
         EditorGUILayout.LabelField($"≈ {operations:N0} ops");
         EditorGUILayout.EndHorizontal();
     }
