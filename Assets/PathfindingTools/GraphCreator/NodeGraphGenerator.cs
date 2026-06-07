@@ -37,16 +37,13 @@ public class NodeGraphGenerator : MonoBehaviour
     [Tooltip("Distance required before nearby generated nodes merge together.")]
     [SerializeField, Min(0.01f)] float _nodeMergeDistance = 1f;
 
-    [Tooltip("Additional distance applied when pushing nodes away from corners.")]
-    [SerializeField, Min(0.001f)] float _extraOffset = 0.05f;
+    [Tooltip("Sampling parameters: corner offsets, angle thresholds and tolerances.")]
+    [SerializeField] SamplerSettings _samplerSettings = SamplerSettings.Default;
 
-    [Tooltip("Minimum angle required for a corner to be considered valid.")]
-    [SerializeField, Range(0f, 180f)] float _minCornerAngle = 10f;
-
-    [Tooltip("Automatically removes the previous baked node container before baking again.")]
+    [Tooltip("Container where baked nodes are stored.")]
     [SerializeField] NodesContainer _targetContainer;
 
-    #region Editor Info 
+    #region Editor Info
     //Read-only values exposed for the custom editor and debug visualization.
     public float ViewRange => _viewRange;
     public float NodeMergeDistance => _nodeMergeDistance;
@@ -62,9 +59,7 @@ public class NodeGraphGenerator : MonoBehaviour
         && _nodePrefab != null
         && HasObstacleMask
         && (_agent.IgnoreWalkableFloor || HasWalkableMask);
-
     #endregion
-
 
 
     /// <summary>
@@ -92,7 +87,8 @@ public class NodeGraphGenerator : MonoBehaviour
         List<Vector3> nodes = NodeGraphBake.GenerateGraph(
             transform.position,
             _viewRange, _agent,
-            _roundColliderPrecision, _nodeMergeDistance);
+            _roundColliderPrecision, _nodeMergeDistance,
+            _samplerSettings);
 
         InstantiateNodes(nodes);
 
@@ -139,7 +135,8 @@ public class NodeGraphGenerator : MonoBehaviour
             transform.position,
             _viewRange,
             _agent,
-            _roundColliderPrecision);
+            _roundColliderPrecision,
+            _samplerSettings);
     }
 
     /// <summary>
@@ -220,5 +217,4 @@ public class NodeGraphGenerator : MonoBehaviour
 
         return false;
     }
-
 }

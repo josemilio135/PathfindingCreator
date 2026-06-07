@@ -14,11 +14,12 @@ public static class NodeGraphBake
     /// Returns the full list of unique node positions that form the graph.
     /// </summary>
     public static List<Vector3> GenerateGraph(
-    Vector3 seedPosition,
+        Vector3 seedPosition,
         float viewRange,
         AgentConfig agent,
         int curvedPrecision,
-        float mergeDistance)
+        float mergeDistance,
+        SamplerSettings settings)
     {
         Queue<Vector3> frontier = new();
         List<Vector3> nodesGraph = new();
@@ -30,10 +31,11 @@ public static class NodeGraphBake
             Vector3 currentNode = frontier.Dequeue();
 
             IEnumerable<Vector3> visibleNodes =
-                 NodeSampler.GetVisibleNodes(
-                     currentNode, viewRange,
-                     agent,
-                     curvedPrecision);
+                NodeSampler.GetVisibleNodes(
+                    currentNode, viewRange,
+                    agent,
+                    curvedPrecision,
+                    settings);
 
             List<Vector3> mergedNodes =
                 NodeSampler.MergeNearbyNodes(visibleNodes, mergeDistance);
@@ -48,12 +50,12 @@ public static class NodeGraphBake
 
         return nodesGraph;
     }
+
     /// <summary>
-    /// Returns true if a node close enough to <paramref name="node"/> already
-    /// exists in the graph. 
+    /// Returns true if a node close enough to <paramref name="node"/> already exists in the graph. 
     /// Proximity is evaluated on the horizontal plane only (Y is ignored)
-    /// So nodes on different floors at the same XZ position are still treated 
-    /// as duplicates and wont be explored twice.
+    /// so nodes on different floors at the same XZ position are still treated 
+    /// as duplicates and won't be explored twice.
     /// </summary>
     static bool AlreadyInGraph(List<Vector3> graph, Vector3 node, float mergeDistance)
     {

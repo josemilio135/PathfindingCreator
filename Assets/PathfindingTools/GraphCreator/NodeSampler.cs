@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+
 /// <summary>
 /// Detects and collects valid waypoint positions visible from a given origin point.
 /// Coordinates obstacle discovery, candidate sampling, line-of-sight filtering,
@@ -17,7 +18,8 @@ public static class NodeSampler
         Vector3 origin,
         float viewRange,
         AgentConfig agent,
-        int curvedPrecision)
+        int curvedPrecision,
+        SamplerSettings settings)
     {
         if (!AgentPhysics.TryGetGroundBelow(
             origin + Vector3.up * 5f, 100f, agent.WalkableMask,
@@ -45,12 +47,12 @@ public static class NodeSampler
             if (obstacle is MeshCollider { convex: false } meshCollider)
             {
                 candidates = WaypointSampler.SampleArchitectureCorners(
-                    meshCollider, agentBottom, agent);
+                    meshCollider, agentBottom, agent, settings);
             }
             else
             {
                 candidates = WaypointSampler.SampleObstacleCorners(
-                    obstacle, agentBottom, agent, curvedPrecision);
+                    obstacle, agentBottom, agent, curvedPrecision, settings);
             }
 
             foreach (Vector3 node in candidates)

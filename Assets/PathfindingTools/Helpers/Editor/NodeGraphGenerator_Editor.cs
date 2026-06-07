@@ -10,18 +10,20 @@ public class NodeGraphGenerator_Editor : Editor
 
     SerializedProperty _agent;
     SerializedProperty _nodePrefab;
-
-
     SerializedProperty _viewRange;
-
     SerializedProperty _roundColliderPrecision;
     SerializedProperty _nodeMergeDistance;
+    SerializedProperty _targetContainer;
+
+    SerializedProperty _samplerSettings;
     SerializedProperty _extraOffset;
     SerializedProperty _minCornerAngle;
-    SerializedProperty _targetContainer;
+    SerializedProperty _minArchCornerAngle;
+    SerializedProperty _straightAngleTolerance;
 
     bool _showGizmos = true;
     bool _showAgentConfig = true;
+    bool _showSampler = true;
 
     bool _drawAgentSize = true;
     bool _drawViewRange = true;
@@ -32,23 +34,18 @@ public class NodeGraphGenerator_Editor : Editor
     {
         _viewer = (NodeGraphGenerator)target;
 
-        _agent =
-            serializedObject.FindProperty("_agent");
-        _viewRange =
-            serializedObject.FindProperty("_viewRange");
-        _nodePrefab =
-            serializedObject.FindProperty("_nodePrefab");
-        _roundColliderPrecision =
-            serializedObject.FindProperty("_roundColliderPrecision");
-        _nodeMergeDistance =
-            serializedObject.FindProperty("_nodeMergeDistance");
-        _extraOffset =
-            serializedObject.FindProperty("_extraOffset");
-        _minCornerAngle =
-            serializedObject.FindProperty("_minCornerAngle");
-        _targetContainer =
-            serializedObject.FindProperty("_targetContainer");
+        _agent = serializedObject.FindProperty("_agent");
+        _viewRange = serializedObject.FindProperty("_viewRange");
+        _nodePrefab = serializedObject.FindProperty("_nodePrefab");
+        _roundColliderPrecision = serializedObject.FindProperty("_roundColliderPrecision");
+        _nodeMergeDistance = serializedObject.FindProperty("_nodeMergeDistance");
+        _targetContainer = serializedObject.FindProperty("_targetContainer");
 
+        _samplerSettings = serializedObject.FindProperty("_samplerSettings");
+        _extraOffset = _samplerSettings.FindPropertyRelative("ExtraOffset");
+        _minCornerAngle = _samplerSettings.FindPropertyRelative("MinCornerAngle");
+        _minArchCornerAngle = _samplerSettings.FindPropertyRelative("MinArchCornerAngle");
+        _straightAngleTolerance = _samplerSettings.FindPropertyRelative("StraightAngleTolerance");
     }
 
     void OnSceneGUI()
@@ -57,8 +54,10 @@ public class NodeGraphGenerator_Editor : Editor
 
         DrawViewRange();
         DrawVisibleCorners();
-        DrawMergeNodes();
-        DrawAgentSize();
+
+        List<Vector3> merged = _viewer.GetMergedCorners();
+        DrawMergeNodes(merged);
+        DrawAgentSize(merged);
     }
 
     public override void OnInspectorGUI()
@@ -92,48 +91,27 @@ public class NodeGraphGenerator_Editor : Editor
     void DrawAgentSection()
     {
         EditorGUILayout.BeginHorizontal();
-
-        EditorGUILayout.PropertyField(
-            _agent,
-            new GUIContent("Agent Config"));
+        EditorGUILayout.PropertyField(_agent, new GUIContent("Agent Config"));
 
         if (_agent.objectReferenceValue == null)
-        {
             if (GUILayout.Button("Create", GUILayout.Width(70f)))
-            {
                 CreateAgentConfig();
-            }
-        }
 
         EditorGUILayout.EndHorizontal();
 
-        AgentConfig config =
-            _agent.objectReferenceValue as AgentConfig;
+        AgentConfig config = _agent.objectReferenceValue as AgentConfig;
 
         if (config == null)
         {
-            EditorGUILayout.HelpBox(
-                "Assign or create an Agent Config.",
-                MessageType.Warning);
-
+            EditorGUILayout.HelpBox("Assign or create an Agent Config.", MessageType.Warning);
             return;
         }
 
-        _showAgentConfig =
-            EditorGUILayout.Foldout(
-                _showAgentConfig,
-                "Edit Agent Config",
-                true);
-
-        if (!_showAgentConfig)
-            return;
+        _showAgentConfig = EditorGUILayout.Foldout(_showAgentConfig, "Edit Agent Config", true);
+        if (!_showAgentConfig) return;
 
         EditorGUI.indentLevel++;
-
-        CreateCachedEditor(
-            config,
-            null,
-            ref _agentEditor);
+        CreateCachedEditor(config, null, ref _agentEditor);
 
         if (_agentEditor != null)
         {
@@ -144,56 +122,79 @@ public class NodeGraphGenerator_Editor : Editor
 
         EditorGUI.indentLevel--;
     }
+
     void CreateAgentConfig()
     {
-        AgentConfig asset =
-         ScriptableAssetUtility.
-         CreateAsset<AgentConfig>("AgentConfig", ScriptableAssetUtility.CreateLocation.SelectedFolder);
+        AgentConfig asset = ScriptableAssetUtility.CreateAsset<AgentConfig>(
+            "AgentConfig", ScriptableAssetUtility.CreateLocation.SelectedFolder);
 
         _agent.objectReferenceValue = asset;
         serializedObject.ApplyModifiedProperties();
     }
+
     void DrawNodePrefab()
     {
-        EditorGUILayout.PropertyField(
-            _nodePrefab,
-            new GUIContent("Node Prefab"));
+        EditorGUILayout.PropertyField(_nodePrefab, new GUIContent("Node Prefab"));
     }
 
     void DrawAdvancedSection()
     {
-        EditorGUILayout.LabelField(
-            "Advanced Settings", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Advanced Settings", EditorStyles.boldLabel);
 
-        EditorGUILayout.PropertyField(
-            _viewRange,
-            new GUIContent("View Range"));
+        EditorGUILayout.PropertyField(_viewRange,
+            new GUIContent("View Range",
+                "Search radius for nearby colliders."));
 
-        EditorGUILayout.IntSlider(
-            _roundColliderPrecision,
-            4, 32,
-            new GUIContent("Round Collider Precision"));
+        EditorGUILayout.PropertyField(_nodeMergeDistance,
+            new GUIContent("Node Merge Distance",
+                "Nodes closer than this are merged into one."));
 
-        EditorGUILayout.PropertyField(
-            _nodeMergeDistance,
-            new GUIContent("Node Merge Distance"));
+        EditorGUILayout.Space(6f);
 
-        EditorGUILayout.PropertyField(
-            _extraOffset,
-            new GUIContent("Corner Offset"));
+        _showSampler = EditorGUILayout.Foldout(_showSampler, "Corner Detection", true, EditorStyles.foldoutHeader);
+        if (!_showSampler) return;
 
-        EditorGUILayout.Slider(
-            _minCornerAngle,
-            0f,
-            180f,
-            new GUIContent("Min Corner Angle"));
+        EditorGUI.indentLevel++;
+
+        EditorGUILayout.PropertyField(_extraOffset,
+            new GUIContent("Node Offset",
+                "Extra distance from the corner surface. All nodes are pushed this far beyond the agent radius."));
+
+        EditorGUILayout.Space(4f);
+
+        // --- Convex obstacles ---
+        EditorGUILayout.LabelField("Boxes � Spheres � Capsules � Convex Meshes", EditorStyles.miniBoldLabel);
+
+        EditorGUILayout.IntSlider(_roundColliderPrecision, 4, 32,
+            new GUIContent("Sphere & Capsule Precision",
+                "Number of points sampled around spheres and capsules. Higher = more nodes, slower bake."));
+
+        EditorGUILayout.Slider(_minCornerAngle, 0f, 180f,
+            new GUIContent("Corner Angle Threshold",
+                "Corners sharper than this generate a node. Below this angle, no node is placed."));
+
+        EditorGUILayout.Slider(_straightAngleTolerance, 0f, 45f,
+            new GUIContent("Straight Edge Threshold",
+                "Edges within this angle of a straight line are skipped."));
+
+        EditorGUILayout.Space(4f);
+
+        // --- Architecture ---
+        EditorGUILayout.LabelField("ProBuilder � Interiors � Non-Convex Meshes", EditorStyles.miniBoldLabel);
+
+        EditorGUILayout.Slider(_minArchCornerAngle, 0f, 180f,
+            new GUIContent("Wall Corner Threshold",
+                "Wall joins sharper than this generate a node."));
+
+        EditorGUI.indentLevel--;
     }
+
     void DrawBakeButtons()
     {
         EditorGUILayout.LabelField("Container", EditorStyles.boldLabel);
 
         EditorGUILayout.PropertyField(_targetContainer, new GUIContent("Target Container",
-            "Container where nodes will be baked. Assign an existing one or leave empty to create a new one."));
+            "Container where nodes will be baked. Leave empty to create a new one."));
 
         EditorGUILayout.BeginHorizontal();
 
@@ -214,7 +215,6 @@ public class NodeGraphGenerator_Editor : Editor
         }
 
         EditorGUILayout.EndHorizontal();
-
         EditorGUILayout.Space();
 
         if (_agent.objectReferenceValue == null)
@@ -243,26 +243,18 @@ public class NodeGraphGenerator_Editor : Editor
 
         EditorGUI.EndDisabledGroup();
     }
+
     void DrawGizmosSection()
     {
-        _showGizmos =
-            EditorGUILayout.Foldout(_showGizmos, "Gizmos", true);
-
+        _showGizmos = EditorGUILayout.Foldout(_showGizmos, "Gizmos", true);
         if (!_showGizmos) return;
 
         EditorGUI.indentLevel++;
 
-        _drawAgentSize =
-            EditorGUILayout.Toggle("Agent Size", _drawAgentSize);
-
-        _drawViewRange =
-            EditorGUILayout.Toggle("View Range", _drawViewRange);
-
-        _drawDetectionCorners =
-            EditorGUILayout.Toggle("Detection Corners", _drawDetectionCorners);
-
-        _drawMergeNodes =
-            EditorGUILayout.Toggle("Merge Nodes", _drawMergeNodes);
+        _drawAgentSize = EditorGUILayout.Toggle("Agent Size", _drawAgentSize);
+        _drawViewRange = EditorGUILayout.Toggle("View Range", _drawViewRange);
+        _drawDetectionCorners = EditorGUILayout.Toggle("Detection Corners", _drawDetectionCorners);
+        _drawMergeNodes = EditorGUILayout.Toggle("Merge Nodes", _drawMergeNodes);
 
         EditorGUI.indentLevel--;
     }
@@ -272,8 +264,7 @@ public class NodeGraphGenerator_Editor : Editor
         if (!_drawViewRange) return;
 
         Handles.color = Color.white;
-        Handles.DrawWireDisc(
-            _viewer.transform.position, Vector3.up, _viewer.ViewRange);
+        Handles.DrawWireDisc(_viewer.transform.position, Vector3.up, _viewer.ViewRange);
     }
 
     void DrawVisibleCorners()
@@ -286,88 +277,49 @@ public class NodeGraphGenerator_Editor : Editor
             Handles.DrawLine(_viewer.transform.position, corner);
 
             Handles.color = Color.cyan;
-            Handles.SphereHandleCap(
-                0,
-                corner,
-                Quaternion.identity,
-                0.25f,
-                EventType.Repaint);
+            Handles.SphereHandleCap(0, corner, Quaternion.identity, 0.25f, EventType.Repaint);
         }
     }
 
-    void DrawMergeNodes()
+    void DrawMergeNodes(List<Vector3> merged)
     {
         if (!_drawMergeNodes) return;
 
-        List<Vector3> mergedPoints = _viewer.GetMergedCorners();
-
-        for (int i = 0; i < mergedPoints.Count; i++)
+        foreach (Vector3 point in merged)
         {
-            Vector3 point = mergedPoints[i];
-
             Handles.color = new Color(1f, 0f, 1f, 0.15f);
-
-            Handles.DrawSolidDisc(
-                point, Vector3.up, _viewer.NodeMergeDistance);
+            Handles.DrawSolidDisc(point, Vector3.up, _viewer.NodeMergeDistance);
 
             Handles.color = Color.magenta;
-
-            Handles.DrawWireDisc(
-                point, Vector3.up, _viewer.NodeMergeDistance);
-
-            Handles.SphereHandleCap(
-                0,
-                point,
-                Quaternion.identity,
-                0.35f,
-                EventType.Repaint);
+            Handles.DrawWireDisc(point, Vector3.up, _viewer.NodeMergeDistance);
+            Handles.SphereHandleCap(0, point, Quaternion.identity, 0.35f, EventType.Repaint);
         }
     }
 
-    void DrawAgentSize()
+    void DrawAgentSize(List<Vector3> merged)
     {
         if (!_drawAgentSize) return;
 
         float radius = _viewer.AgentRadius;
         float height = _viewer.AgentHeight;
 
-        foreach (Vector3 point in _viewer.GetMergedCorners())
+        foreach (Vector3 point in merged)
         {
-            Vector3 bottomCenter = point;
-            Vector3 topCenter = point + Vector3.up * height;
+            Vector3 bottom = point;
+            Vector3 top = point + Vector3.up * height;
 
             Handles.color = Color.green;
 
-            Handles.DrawWireDisc(
-                bottomCenter, Vector3.up, radius);
+            Handles.DrawWireDisc(bottom, Vector3.up, radius);
+            Handles.DrawWireDisc(top, Vector3.up, radius);
 
-            Handles.DrawWireDisc(
-                topCenter, Vector3.up, radius);
-
-            Handles.DrawLine(
-                bottomCenter + Vector3.forward * radius,
-                topCenter + Vector3.forward * radius);
-
-            Handles.DrawLine(
-                bottomCenter - Vector3.forward * radius,
-                topCenter - Vector3.forward * radius);
-
-            Handles.DrawLine(
-                bottomCenter + Vector3.right * radius,
-                topCenter + Vector3.right * radius);
-
-            Handles.DrawLine(
-                bottomCenter - Vector3.right * radius,
-                topCenter - Vector3.right * radius);
+            Handles.DrawLine(bottom + Vector3.forward * radius, top + Vector3.forward * radius);
+            Handles.DrawLine(bottom - Vector3.forward * radius, top - Vector3.forward * radius);
+            Handles.DrawLine(bottom + Vector3.right * radius, top + Vector3.right * radius);
+            Handles.DrawLine(bottom - Vector3.right * radius, top - Vector3.right * radius);
 
             Handles.color = Color.red;
-
-            Handles.SphereHandleCap(
-                0,
-                point,
-                Quaternion.identity,
-                0.08f,
-                EventType.Repaint);
+            Handles.SphereHandleCap(0, point, Quaternion.identity, 0.08f, EventType.Repaint);
         }
     }
 }

@@ -12,15 +12,6 @@ public static class WaypointSampler
     //Merge nearby vertices, avoid floating duplicates
     const float VERTEX_SNAP = 0.025f;
 
-    //Minimum angle between normals to consider that a real architectural corner exists.
-    const float CORNER_ANGLE = 25f;
-
-    //Tolerance margin to ignore nearly straight segments of the contour.
-    const float STRAIGHT_ANGLE = 10f;
-
-    //Separación extra agregada al radio del agente.
-    const float EXTRA_OFFSET = 0.25f;
-
     /// <summary>
     /// Generates navigable waypoint candidates from the outer corners
     /// of a convex obstacle contour.
@@ -30,16 +21,19 @@ public static class WaypointSampler
     public static IEnumerable<Vector3> SampleObstacleCorners(
         Collider obstacle,
         float agentBottom, AgentConfig agent,
-        int curvedPrecision)
+        int curvedPrecision,
+        SamplerSettings settings)
     {
         List<Vector3> contour = ColliderContourExtractor.Extract(
             obstacle, agentBottom, agent.Height, curvedPrecision);
 
         if (contour.Count < 2) yield break;
 
+        float offset = agent.Radius + settings.ExtraOffset;
+
         for (int i = 0; i < contour.Count; i++)
         {
-            //Three point to create a corner
+            //Three points to create a corner
             Vector3 prevVert = contour[(i - 1 + contour.Count) % contour.Count];
             Vector3 currentVert = contour[i];
             Vector3 nextVert = contour[(i + 1) % contour.Count];
@@ -50,24 +44,28 @@ public static class WaypointSampler
             if (dirIn == Vector3.zero || dirOut == Vector3.zero) continue;
 
             float angle = Vector3.Angle(dirIn, dirOut);
-            if (Mathf.Abs(angle - 180f) <= STRAIGHT_ANGLE) continue;
 
-            //Calculate direction out of the corner.
+            //Skip nearly straight segments
+            if (Mathf.Abs(angle - 180f) <= settings.StraightAngleTolerance) continue;
+
+            //Skip corners below the minimum threshold
+            if (angle < settings.MinCornerAngle) continue;
+
+            //Calculate direction out of the corner
             Vector3 outward = FlatNormalized(Perp(dirIn) + Perp(dirOut));
             if (outward == Vector3.zero) continue;
 
-            //Set offset
-            float offset = agent.Radius + EXTRA_OFFSET;
-
+            //Miter-length keeps the offset consistent regardless of corner sharpness
             float cornerAngleRad = angle * Mathf.Deg2Rad;
-            float miterLength = offset;
-            if (cornerAngleRad > 0.01f) miterLength = offset / Mathf.Sin(cornerAngleRad * 0.5f);
+            float miterLength = cornerAngleRad > 0.01f
+                ? offset / Mathf.Sin(cornerAngleRad * 0.5f)
+                : offset;
 
             miterLength = Mathf.Min(miterLength, offset * 4f);
 
             Vector3 candidate = currentVert + outward * miterLength;
 
-            //Set on ground
+            //Snap to walkable ground
             if (!AgentPhysics.TrySnapToGround(
                 candidate, agent.Height, agent.Radius,
                 obstacle, agent.ObstacleMask, agent.WalkableMask,
@@ -84,7 +82,8 @@ public static class WaypointSampler
     /// </summary>
     public static IEnumerable<Vector3> SampleArchitectureCorners(
         MeshCollider architecture,
-        float agentBottom, AgentConfig agent)
+        float agentBottom, AgentConfig agent,
+        SamplerSettings settings)
     {
         if (architecture.sharedMesh == null) yield break;
 
@@ -105,10 +104,10 @@ public static class WaypointSampler
 
             Vector3 faceNormal = Vector3.Cross(b - a, c - a).normalized;
 
-            // Skip floor/ceiling faces
+            //Skip floor/ceiling faces.
             if (Mathf.Abs(faceNormal.y) > 0.15f) continue;
 
-            // Skip triangles fully outside agent height band
+            //Skip triangles fully outside agent height band
             if ((a.y < agentBottom && b.y < agentBottom && c.y < agentBottom) ||
                 (a.y > agentTop && b.y > agentTop && c.y > agentTop))
                 continue;
@@ -121,10 +120,11 @@ public static class WaypointSampler
 
         foreach (var (key, normals) in vertexNormals)
         {
-            if (!IsCornerVertex(normals, out Vector3 averageNormal)) continue;
+            if (!IsCornerVertex(normals, settings.MinArchCornerAngle, out Vector3 averageNormal))
+                continue;
 
             Vector3 corner = new(key.x * VERTEX_SNAP, agentBottom, key.y * VERTEX_SNAP);
-            Vector3 candidate = corner + averageNormal * (agent.Radius + EXTRA_OFFSET);
+            Vector3 candidate = corner + averageNormal * (agent.Radius + settings.ExtraOffset);
 
             if (!AgentPhysics.TrySnapToGround(
                 candidate, agent.Height, agent.Radius,
@@ -145,7 +145,9 @@ public static class WaypointSampler
     /// by comparing the angular difference between connected wall normals.
     /// Also outputs the averaged outward-facing corner direction.
     /// </summary>
-    static bool IsCornerVertex(List<Vector3> normals, out Vector3 averageNormal)
+    static bool IsCornerVertex(
+        List<Vector3> normals, float minAngle,
+        out Vector3 averageNormal)
     {
         averageNormal = Vector3.zero;
         bool isCorner = false;
@@ -157,7 +159,7 @@ public static class WaypointSampler
             for (int j = i + 1; j < normals.Count; j++)
             {
                 float angle = Vector3.Angle(normals[i], normals[j]);
-                if (angle > CORNER_ANGLE && angle < 175f) isCorner = true;
+                if (angle > minAngle && angle < 175f) isCorner = true;
             }
         }
 
