@@ -22,7 +22,7 @@ public class NodesContainer : MonoBehaviour
         set => _nodes = value;
     }
 
-    #region Editor Stadistics
+    #region Editor Statistics
     public int ConnectionCount
     {
         get
@@ -65,25 +65,20 @@ public class NodesContainer : MonoBehaviour
         for (int i = 0; i < _nodes.Count; i++)
         {
             BaseNode currentNode = _nodes[i];
-
             if (currentNode == null) continue;
 
             for (int j = 0; j < _nodes.Count; j++)
             {
                 BaseNode otherNode = _nodes[j];
+                if (otherNode == null || otherNode == currentNode) continue;
 
-                if (otherNode == null) continue;
-                if (otherNode == currentNode) continue;
-
-                bool hasLOS =
-                     Perception.HasLineOfSight_Capsule(
-                        currentNode.Position, otherNode.Position,
-                        _agent.Radius, _agent.Height, _agent.ObstacleMask);
+                bool hasLOS = Perception.HasLineOfSight_Capsule(
+                    currentNode.Position, otherNode.Position,
+                    _agent.Radius, _agent.Height, _agent.ObstacleMask);
 
                 if (hasLOS) currentNode.AddNeighbor(otherNode);
             }
         }
-        Debug.Log("Neighbors generated.");
     }
 
     public BaseNode FindClosestNode(Vector3 position)
@@ -91,12 +86,11 @@ public class NodesContainer : MonoBehaviour
         BaseNode closest = null;
         float bestDistance = float.MaxValue;
 
-        foreach (var node in _nodes)
+        foreach (BaseNode node in _nodes)
         {
             if (node == null) continue;
 
             float distance = Vector3.SqrMagnitude(node.Position - position);
-
             if (distance >= bestDistance) continue;
 
             bestDistance = distance;
@@ -112,7 +106,7 @@ public class NodesContainer : MonoBehaviour
         BaseNode best = null;
         float bestScore = float.MaxValue;
 
-        foreach (var node in _nodes)
+        foreach (BaseNode node in _nodes)
         {
             if (node == null) continue;
 
@@ -132,6 +126,122 @@ public class NodesContainer : MonoBehaviour
         return best ?? FindClosestNode(targetPosition);
     }
 
+    #region Evaluate Nodes
+
+    [ContextMenu("Remove Redundant Nodes")]
+    public void RemoveRedundantNodes()
+    {
+        List<BaseNode> redundant = FindRedundantNodes();
+
+        foreach (BaseNode node in redundant)
+        {
+            _nodes.Remove(node);
+
+#if UNITY_EDITOR
+            DestroyImmediate(node.gameObject);
+#else
+            Destroy(node.gameObject);
+#endif
+        }
+
+        _nodes.RemoveAll(n => n == null);
+
+        if (redundant.Count == 0) return;
+
+        BuildNeighbors();
+        Debug.Log($"Removed {redundant.Count} redundant nodes and rebuilt neighbors.");
+    }
+
+    List<BaseNode> FindRedundantNodes()
+    {
+        Dictionary<BaseNode, HashSet<BaseNode>> neighborSets = BuildNeighborSetCache();
+        HashSet<BaseNode> toRemove = new();
+
+        for (int i = 0; i < _nodes.Count; i++)
+        {
+            BaseNode a = _nodes[i];
+            if (a == null || toRemove.Contains(a)) continue;
+
+            for (int j = i + 1; j < _nodes.Count; j++)
+            {
+                BaseNode b = _nodes[j];
+                if (b == null || toRemove.Contains(b)) continue;
+
+                if (!AreNeighborSetsEquivalent(a, b, neighborSets)) continue;
+
+                BaseNode victim = a.Neighbors.Count <= b.Neighbors.Count ? a : b;
+                toRemove.Add(victim);
+            }
+        }
+
+        foreach (BaseNode node in _nodes)
+        {
+            if (node == null || toRemove.Contains(node)) continue;
+            if (node.Neighbors.Count == 0) toRemove.Add(node);
+        }
+
+        return new List<BaseNode>(toRemove);
+    }
+
+    Dictionary<BaseNode, HashSet<BaseNode>> BuildNeighborSetCache()
+    {
+        Dictionary<BaseNode, HashSet<BaseNode>> cache = new();
+
+        foreach (BaseNode node in _nodes)
+        {
+            if (node == null) continue;
+            cache[node] = new HashSet<BaseNode>(node.Neighbors);
+        }
+
+        return cache;
+    }
+
+    bool AreNeighborSetsEquivalent(
+        BaseNode a, BaseNode b,
+        Dictionary<BaseNode, HashSet<BaseNode>> sets)
+    {
+        if (!sets.TryGetValue(a, out HashSet<BaseNode> neighborsA)) return false;
+        if (!sets.TryGetValue(b, out HashSet<BaseNode> neighborsB)) return false;
+
+        if (neighborsA.Count == 0 || neighborsB.Count == 0) return false;
+
+        bool aHasB = neighborsA.Contains(b);
+        bool bHasA = neighborsB.Contains(a);
+
+        if (aHasB) neighborsA.Remove(b);
+        if (bHasA) neighborsB.Remove(a);
+
+        bool equal = neighborsA.SetEquals(neighborsB);
+
+        if (aHasB) neighborsA.Add(b);
+        if (bHasA) neighborsB.Add(a);
+
+        return equal;
+    }
+
+    #endregion
+
+    #region Node Visibility
+
+    [SerializeField, HideInInspector] bool _nodesVisible = true;
+
+    public bool NodesVisible => _nodesVisible;
+
+    [ContextMenu("Toggle Nodes Visibility")]
+    public void ToggleNodesVisibility() => SetNodesVisible(!_nodesVisible);
+
+    public void SetNodesVisible(bool visible)
+    {
+        _nodesVisible = visible;
+
+        foreach (BaseNode node in _nodes)
+        {
+            if (node is NavNode navNode) navNode.SetVisible(visible);
+        }
+    }
+    void OnEnable() => SetNodesVisible(_nodesVisible);
+
+    #endregion
 
 #if UNITY_EDITOR
 
@@ -145,10 +255,9 @@ public class NodesContainer : MonoBehaviour
 
     void OnDrawGizmosSelected()
     {
-        if (_agent == null) return;
-        if (_nodes == null) return;
+        if (_agent == null || _nodes == null) return;
 
-        foreach (var node in _nodes)
+        foreach (BaseNode node in _nodes)
         {
             if (node == null) continue;
 
@@ -158,7 +267,7 @@ public class NodesContainer : MonoBehaviour
 
             Gizmos.color = Color.green;
 
-            foreach (var neighbour in node.Neighbors)
+            foreach (BaseNode neighbour in node.Neighbors)
             {
                 if (neighbour == null) continue;
 
@@ -167,6 +276,7 @@ public class NodesContainer : MonoBehaviour
                     neighbour.Position + Vector3.up * (_agent.Height * 0.5f));
             }
         }
+
         void DrawCapsule(Vector3 position)
         {
             Gizmos.color = Color.cyan;
@@ -177,21 +287,10 @@ public class NodesContainer : MonoBehaviour
             Gizmos.DrawWireSphere(bottom, _agent.Radius);
             Gizmos.DrawWireSphere(top, _agent.Radius);
 
-            Gizmos.DrawLine(
-                bottom + Vector3.forward * _agent.Radius,
-                top + Vector3.forward * _agent.Radius);
-
-            Gizmos.DrawLine(
-                bottom - Vector3.forward * _agent.Radius,
-                top - Vector3.forward * _agent.Radius);
-
-            Gizmos.DrawLine(
-                bottom + Vector3.right * _agent.Radius,
-                top + Vector3.right * _agent.Radius);
-
-            Gizmos.DrawLine(
-                bottom - Vector3.right * _agent.Radius,
-                top - Vector3.right * _agent.Radius);
+            Gizmos.DrawLine(bottom + Vector3.forward * _agent.Radius, top + Vector3.forward * _agent.Radius);
+            Gizmos.DrawLine(bottom - Vector3.forward * _agent.Radius, top - Vector3.forward * _agent.Radius);
+            Gizmos.DrawLine(bottom + Vector3.right * _agent.Radius, top + Vector3.right * _agent.Radius);
+            Gizmos.DrawLine(bottom - Vector3.right * _agent.Radius, top - Vector3.right * _agent.Radius);
         }
     }
 #endif

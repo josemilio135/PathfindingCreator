@@ -19,17 +19,11 @@ public class NodesContainer_Editor : Editor
         serializedObject.Update();
 
         DrawAgentSection();
-
         EditorGUILayout.Space();
-
         DrawPropertiesExcluding(serializedObject, "_agent", "m_Script");
-
         EditorGUILayout.Space();
-
         DrawButtons();
-
         EditorGUILayout.Space();
-
         DrawStatistics((NodesContainer)target);
 
         serializedObject.ApplyModifiedProperties();
@@ -38,36 +32,23 @@ public class NodesContainer_Editor : Editor
     void DrawAgentSection()
     {
         EditorGUILayout.BeginHorizontal();
-
-        EditorGUILayout.PropertyField(
-            _agent,
-            new GUIContent("Agent Config"));
+        EditorGUILayout.PropertyField(_agent, new GUIContent("Agent Config"));
 
         if (_agent.objectReferenceValue == null)
-        {
             if (GUILayout.Button("Create", GUILayout.Width(70f)))
-            {
                 CreateAgentConfig();
-            }
-        }
 
         EditorGUILayout.EndHorizontal();
 
-        AgentConfig config =
-            _agent.objectReferenceValue as AgentConfig;
+        AgentConfig config = _agent.objectReferenceValue as AgentConfig;
 
         if (config == null)
         {
-            EditorGUILayout.HelpBox(
-                "Assign or create an Agent Config.",
-                MessageType.Warning);
-
+            EditorGUILayout.HelpBox("Assign or create an Agent Config.", MessageType.Warning);
             return;
         }
 
-        _showAgentConfig =
-            EditorGUILayout.Foldout(_showAgentConfig, "Edit Agent Config", true);
-
+        _showAgentConfig = EditorGUILayout.Foldout(_showAgentConfig, "Edit Agent Config", true);
         if (!_showAgentConfig) return;
 
         CreateCachedEditor(config, null, ref _agentEditor);
@@ -75,23 +56,17 @@ public class NodesContainer_Editor : Editor
         if (_agentEditor != null)
         {
             EditorGUILayout.BeginVertical("box");
-
             _agentEditor.OnInspectorGUI();
-
             EditorGUILayout.EndVertical();
         }
     }
 
     void CreateAgentConfig()
     {
-        NodesContainer container = (NodesContainer)target;
-
-        AgentConfig asset =
-            ScriptableAssetUtility.
-            CreateAsset<AgentConfig>("AgentConfig", ScriptableAssetUtility.CreateLocation.SelectedFolder);
+        AgentConfig asset = ScriptableAssetUtility.CreateAsset<AgentConfig>(
+            "AgentConfig", ScriptableAssetUtility.CreateLocation.SelectedFolder);
 
         _agent.objectReferenceValue = asset;
-
         serializedObject.ApplyModifiedProperties();
     }
 
@@ -99,44 +74,57 @@ public class NodesContainer_Editor : Editor
     {
         NodesContainer container = (NodesContainer)target;
 
-        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Graph", EditorStyles.boldLabel);
+
+        EditorGUILayout.BeginHorizontal();
 
         if (GUILayout.Button("Build Neighbors"))
         {
             Undo.RecordObject(container, "Build Neighbors");
-
             container.BuildNeighbors();
-
             EditorUtility.SetDirty(container);
         }
+
+        if (GUILayout.Button("Remove Redundant"))
+        {
+            Undo.RecordObject(container, "Remove Redundant Nodes");
+            container.RemoveRedundantNodes();
+            EditorUtility.SetDirty(container);
+        }
+
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.Space(4f);
+        EditorGUILayout.LabelField("Visibility", EditorStyles.boldLabel);
+
+        EditorGUILayout.BeginHorizontal();
+
+        bool isVisible = container.NodesVisible;
+        GUI.backgroundColor = isVisible ? Color.red : Color.green;
+
+        if (GUILayout.Button(isVisible ? "Hide Nodes" : "Show Nodes"))
+        {
+            Undo.RecordObject(container, "Toggle Nodes Visibility");
+            container.SetNodesVisible(!isVisible);
+            EditorUtility.SetDirty(container);
+        }
+
+        GUI.backgroundColor = Color.white;
+        EditorGUILayout.EndHorizontal();
     }
+
     void DrawStatistics(NodesContainer container)
     {
-        EditorGUILayout.LabelField(
-            "Graph Statistics",
-            EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Graph Statistics", EditorStyles.boldLabel);
 
         EditorGUILayout.BeginVertical("box");
-
-        EditorGUILayout.LabelField(
-            "Nodes",
-            container.Nodes.Count.ToString("N0"));
-
-        EditorGUILayout.LabelField(
-            "Connections",
-            container.ConnectionCount.ToString("N0"));
-
-        EditorGUILayout.LabelField(
-            "Average Connections",
-            container.AverageConnections.ToString("F1"));
-
+        EditorGUILayout.LabelField("Nodes", container.Nodes.Count.ToString("N0"));
+        EditorGUILayout.LabelField("Connections", container.ConnectionCount.ToString("N0"));
+        EditorGUILayout.LabelField("Average Connections", container.AverageConnections.ToString("F1"));
         EditorGUILayout.EndVertical();
 
         EditorGUILayout.Space();
-
-        EditorGUILayout.LabelField(
-            "Worst Case Solver Estimates",
-            EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Worst Case Solver Estimates", EditorStyles.boldLabel);
 
         EditorGUILayout.HelpBox(
             "These estimates represent the theoretical worst-case amount of graph work. " +
@@ -144,53 +132,20 @@ public class NodesContainer_Editor : Editor
             MessageType.Info);
 
         EditorGUILayout.BeginVertical("box");
-
-        DrawSolverEstimate(
-            "DFS / BFS",
-            "O(N + E)",
-            container.EstimatedDFS_BFS);
-
-        DrawSolverEstimate(
-            "Dijkstra",
-            "O(E log N)",
-            container.EstimatedDijkstra);
-
-        DrawSolverEstimate(
-            "A*",
-            "O(E log N)",
-            container.EstimatedAStar);
-
-        DrawSolverEstimate(
-            "Theta*",
-            "O(E log N) + LOS",
-            container.EstimatedThetaStar);
-
-        DrawSolverEstimate(
-            "Theta* Smooth",
-            "O(E log N) + Extra LOS",
-            container.EstimatedThetaStarSmooth);
-
+        DrawSolverEstimate("DFS / BFS", "O(N + E)", container.EstimatedDFS_BFS);
+        DrawSolverEstimate("Dijkstra", "O(E log N)", container.EstimatedDijkstra);
+        DrawSolverEstimate("A*", "O(E log N)", container.EstimatedAStar);
+        DrawSolverEstimate("Theta*", "O(E log N) + LOS", container.EstimatedThetaStar);
+        DrawSolverEstimate("Theta* Smooth", "O(E log N) + LOS² ", container.EstimatedThetaStarSmooth);
         EditorGUILayout.EndVertical();
     }
 
-    void DrawSolverEstimate(
-        string solver,
-        string complexity,
-        int operations)
+    void DrawSolverEstimate(string solver, string complexity, int operations)
     {
         EditorGUILayout.BeginHorizontal();
-
-        EditorGUILayout.LabelField(
-            solver,
-            GUILayout.Width(120));
-
-        EditorGUILayout.LabelField(
-            complexity,
-            GUILayout.Width(100));
-
-        EditorGUILayout.LabelField(
-            $"≈ {operations:N0} ops");
-
+        EditorGUILayout.LabelField(solver, GUILayout.Width(120));
+        EditorGUILayout.LabelField(complexity, GUILayout.Width(100));
+        EditorGUILayout.LabelField($"≈ {operations:N0} ops");
         EditorGUILayout.EndHorizontal();
     }
 }

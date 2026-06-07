@@ -174,6 +174,7 @@ public class NodeGraphGenerator : MonoBehaviour
         }
 
         container.BuildNeighbors();
+        container.RemoveRedundantNodes();
     }
 
     /// <summary>

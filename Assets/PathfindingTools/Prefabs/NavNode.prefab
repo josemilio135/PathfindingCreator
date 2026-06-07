@@ -46,6 +46,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _neighbors: []
+  _renderer: {fileID: 3034803358022499121}
 --- !u!1 &7445909948381508986
 GameObject:
   m_ObjectHideFlags: 0
