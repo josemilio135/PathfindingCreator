@@ -118,7 +118,7 @@ public class AgentRunner : MonoBehaviour
             return;
         }
 
-        Vector3 nodePos = _currentPath[_currentIndex].Position;
+        Vector3 nodePos = _currentPath[_currentIndex].Position; 
         float speed = _moveSpeed;
 
         float remainingDistance = RemainingPathDistance();

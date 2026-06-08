@@ -21,6 +21,7 @@ public class Focuser : MonoBehaviour
     private void Start()
     {
         _camera = CameraController.Instance;
+        EnterFocusMode();
     }
 
     private void Update()

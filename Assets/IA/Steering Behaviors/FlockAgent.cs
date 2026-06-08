@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 public class FlockAgent : SteeringAgent
 {
+    /*
     [HideInInspector] public FlockManager manager;
 
     [Header("Flocking Weight Settings")]
@@ -26,20 +27,20 @@ public class FlockAgent : SteeringAgent
     {
         if (manager == null) return;
 
-       // if (!_accumulate) AddForce(Wander() * _groupSpeed);
+        if (!_accumulate) AddForce(Wander() * _groupSpeed);
 
         List<FlockAgent> neighbors = manager.GetNeighbors(this, _neighborRadius);
         List<FlockAgent> closeNeighbors = manager.GetNeighbors(this, _separationRadius);
 
         if (closeNeighbors.Count > 0)
         {
-           // AddForce(CalculateSeparation(closeNeighbors) * _weightSeparation);
+            AddForce(CalculateSeparation(closeNeighbors) * _weightSeparation);
         }
 
         if (neighbors.Count > 0)
         {
-           // AddForce(CalculateAlignment(neighbors) * _weightAlignment);
-           // AddForce(CalculateCohesion(neighbors) * _weightCohesion);
+            AddForce(CalculateAlignment(neighbors) * _weightAlignment);
+            AddForce(CalculateCohesion(neighbors) * _weightCohesion);
         }
     }
     private Vector3 CalculateSeparation(List<FlockAgent> closeNeighbors)
@@ -52,7 +53,7 @@ public class FlockAgent : SteeringAgent
 
             if (distance < 0.001f) continue;
 
-            //separationForce += Flee(neighbor.transform.position) / distance;
+            separationForce += Flee(neighbor.transform.position) / distance;
         }
 
         return separationForce;
@@ -83,8 +84,9 @@ public class FlockAgent : SteeringAgent
 
         centerOfMass /= neighbors.Count;
 
-        // return Seek(centerOfMass);
+         return Seek(centerOfMass);
         return Vector3.zero;
     }
+ */
 }
 

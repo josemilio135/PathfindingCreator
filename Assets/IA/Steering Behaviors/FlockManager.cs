@@ -43,7 +43,7 @@ public class FlockManager : MonoBehaviour
             }
 
             var agent = Instantiate(_agentPrefab, spawnPos, Quaternion.identity, transform);
-            agent.Initialize(this);
+            //agent.Initialize(this);
 
             Agents.Add(agent);
         }
