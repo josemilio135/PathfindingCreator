@@ -28,6 +28,8 @@ public class AgentRunner : MonoBehaviour
     int _currentIndex;
     WaypointNode _tempStart;
     WaypointNode _tempEnd;
+    float _graphMaxRadius;
+
     public System.Action OnDestinationReached;
 
     public NodesContainer CurrentContainer => _container;
@@ -46,6 +48,8 @@ public class AgentRunner : MonoBehaviour
 
         _tempStart = CreateTempNode("Start");
         _tempEnd = CreateTempNode("End");
+
+        _graphMaxRadius = ComputeGraphMaxRadius();
     }
 
     WaypointNode CreateTempNode(string label)
@@ -142,11 +146,14 @@ public class AgentRunner : MonoBehaviour
     }
 
 
-    Vector3 FindNearestNavegablePos(Vector3 target, float maxSearchRadius = 3f, float stepRadius = 0.25f, int samplesPerRing = 16)
+    Vector3 FindNearestNavegablePos(Vector3 target)
     {
         if (IsPositionWalkable(target)) return target;
 
-        for (float radius = stepRadius; radius <= maxSearchRadius; radius += stepRadius)
+        float stepRadius = _container.Agent.Radius;
+        int samplesPerRing = 16;
+
+        for (float radius = stepRadius; radius <= _graphMaxRadius; radius += stepRadius)
         {
             for (int i = 0; i < samplesPerRing; i++)
             {
@@ -155,7 +162,24 @@ public class AgentRunner : MonoBehaviour
                 if (IsPositionWalkable(candidate)) return candidate;
             }
         }
+
         return target;
+    }
+
+    float ComputeGraphMaxRadius()
+    {
+        float maxDist = 0f;
+        foreach (BaseNode a in _container.Nodes)
+        {
+            if (a == null) continue;
+            foreach (BaseNode b in _container.Nodes)
+            {
+                if (b == null || b == a) continue;
+                float dist = Vector3.SqrMagnitude(a.Position - b.Position);
+                if (dist > maxDist) maxDist = dist;
+            }
+        }
+        return Mathf.Sqrt(maxDist);
     }
 
     bool IsPositionWalkable(Vector3 position)
@@ -163,10 +187,27 @@ public class AgentRunner : MonoBehaviour
         float radius = _container.Agent.Radius;
         float height = _container.Agent.Height;
 
+        if (Physics.Raycast(position + Vector3.up * 0.01f, Vector3.up, height,
+            _container.Agent.ObstacleMask, QueryTriggerInteraction.Ignore))
+            return false;
+
         Vector3 bottom = position + Vector3.up * radius;
         Vector3 top = position + Vector3.up * (height - radius);
 
-        return !Physics.CheckCapsule(bottom, top, radius, _container.Agent.ObstacleMask);
+        if (Physics.CheckCapsule(bottom, top, radius, _container.Agent.ObstacleMask))
+            return false;
+
+        if (!AgentPhysics.TryGetGroundBelow(
+            position + Vector3.up * 5f, 10f, _container.Agent.WalkableMask, out _))
+            return false;
+
+        BaseNode closest = _container.FindClosestNode(position);
+        if (closest == null) return false;
+
+        return Perception.HasLineOfSight_Capsule(
+                   position, closest.Position, radius, height, _container.Agent.ObstacleMask)
+            && Perception.HasLineOfSight_Capsule(
+                   closest.Position, position, radius, height, _container.Agent.ObstacleMask);
     }
 
     public bool HasDirectLOS(Vector3 destination)
