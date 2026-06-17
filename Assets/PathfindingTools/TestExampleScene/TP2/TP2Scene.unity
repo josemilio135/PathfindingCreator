@@ -3814,8 +3814,8 @@ MonoBehaviour:
   _minDistance: 1
   _maxDistance: 40
   _zoomSmoothTime: 0.1
-  _horizontalRotationSpeed: 20
-  _verticalRotationSpeed: 20
+  _horizontalRotationSpeed: 45
+  _verticalRotationSpeed: 45
   _minVerticalAngle: -15
   _maxVerticalAngle: 90
   _dragPanSpeed: 0.05

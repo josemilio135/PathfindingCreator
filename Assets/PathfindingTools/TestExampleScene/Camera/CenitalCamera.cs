@@ -208,8 +208,8 @@ public class CenitalCamera : MonoBehaviour
     {
         if (!InputRotate) return;
 
-        _horizontalAngle += InputMouseDelta.x * _horizontalRotationSpeed * Time.deltaTime;
-        _verticalAngle -= InputMouseDelta.y * _verticalRotationSpeed * Time.deltaTime;
+        _horizontalAngle += InputMouseDelta.x * _horizontalRotationSpeed ;
+        _verticalAngle -= InputMouseDelta.y * _verticalRotationSpeed ;
 
         _verticalAngle = Mathf.Clamp(_verticalAngle, _minVerticalAngle, _maxVerticalAngle);
     }
