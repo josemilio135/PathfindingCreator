@@ -11027,6 +11027,7 @@ GameObject:
   - component: {fileID: 1219005860}
   - component: {fileID: 1219005859}
   - component: {fileID: 1219005858}
+  - component: {fileID: 1219005862}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -11118,6 +11119,20 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!114 &1219005862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1219005857}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50ea0d6b8d6783f4d92e4f7dd6f1993a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetScene: TestPathfindingScene
+  _nodesContainer: {fileID: 619837331}
 --- !u!1001 &1225310226
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -17729,8 +17744,8 @@ SceneRoots:
   - {fileID: 1219005861}
   - {fileID: 1801969554}
   - {fileID: 1933389781}
-  - {fileID: 1432061503}
   - {fileID: 543450651934052616}
+  - {fileID: 1432061503}
   - {fileID: 358674462}
   - {fileID: 619837332}
   - {fileID: 1430396453}
