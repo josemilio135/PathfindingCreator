@@ -37,6 +37,7 @@ public class AgentRunner : MonoBehaviour
     public Vector3 Velocity => _movement.Velocity;
     public float MoveSpeed => _moveSpeed;
     public float RotationSpeed => _rotationSpeed;
+    public float StopDistance { get; set; } = 0f;
 
     void Awake()
     {
@@ -118,14 +119,20 @@ public class AgentRunner : MonoBehaviour
             return;
         }
 
-        Vector3 nodePos = _currentPath[_currentIndex].Position; 
+        Vector3 nodePos = _currentPath[_currentIndex].Position;
         float speed = _moveSpeed;
 
         float remainingDistance = RemainingPathDistance();
-        if (remainingDistance < _slowDownDistance)
+
+        if (StopDistance > 0f && remainingDistance <= StopDistance)
         {
-            speed = Mathf.Max(_moveSpeed * (remainingDistance / _slowDownDistance), 0.1f);
+            _currentPath.Clear();
+            OnDestinationReached?.Invoke();
+            return;
         }
+
+        if (remainingDistance < _slowDownDistance)
+            speed = Mathf.Max(_moveSpeed * (remainingDistance / _slowDownDistance), 0.1f);
 
         bool arriveDestination =
             _movement.MoveTowardsFlat(transform, nodePos, speed, _nodeReachDistance);

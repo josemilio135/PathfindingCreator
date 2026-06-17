@@ -3,17 +3,22 @@
 public class PersueState : BaseState<Hunter>
 {
     AgentRunner _target;
-    public PersueState(StateMachine fsm, Hunter controller, AgentRunner target) : base(fsm, controller)
+    float _stopDistance, _originStopDistance;
+    public PersueState(StateMachine fsm, Hunter controller, AgentRunner target, float stopDistance) : base(fsm, controller)
     {
         _target = target;
+        _stopDistance = stopDistance;
+
+        _originStopDistance = controller.AgentPath.StopDistance;
     }
 
     public override void OnEnter()
     {
         controller.IsPursue = true;
+        controller.AgentPath.StopDistance = _stopDistance;
 
         Debug.Log("Persui player");
-        controller.SetStateText("!"); 
+        controller.SetStateText("!");
         controller.SetColorFOV("FF3B00");
     }
 
@@ -37,6 +42,7 @@ public class PersueState : BaseState<Hunter>
     {
         controller.IsPursue = false;
         controller.LastKnownPos = _target.transform.position;
-    }
 
+        controller.AgentPath.StopDistance = _originStopDistance;
+    }
 }

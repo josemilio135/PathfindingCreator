@@ -570,6 +570,7 @@ MonoBehaviour:
   searchRotationAngle: 120
   _patrolPingPong: 0
   _target: {fileID: 0}
+  _stopDistance: 0
   _allies:
   - {fileID: 4022376599798596564}
   - {fileID: 0}

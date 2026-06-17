@@ -12,6 +12,7 @@ public class Hunter : Controller
 
     [Header("Target")]
     [SerializeField] AgentRunner _target;
+    [SerializeField, Min(0f)] float _stopDistance = 0f;
 
     [Header("Alert")]
     [SerializeField] List<Hunter> _allies = new();
@@ -52,7 +53,7 @@ public class Hunter : Controller
         lookAroundState = new LookAroundState(stateMachine, this, _lookAroundTime, searchRotationAngle);
         patrolState = new PatrolState(stateMachine, this, _waypointsContainer);
         goToAlertState = new GoToAlertState(stateMachine, this);
-        pursueState = new PersueState(stateMachine, this, _target);
+        pursueState = new PersueState(stateMachine, this, _target, _stopDistance);
     }
 
     protected override void SetTransitions()
