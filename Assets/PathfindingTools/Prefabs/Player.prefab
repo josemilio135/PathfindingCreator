@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8777330778438049396}
   - component: {fileID: 7515998046442568507}
   - component: {fileID: 6471591701534672814}
+  - component: {fileID: 8585731344559606580}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -60,12 +61,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _solverType: 3
   _container: {fileID: 0}
-  _moveSpeed: 7
-  _rotationSpeed: 5
   _nodeReachDistance: 0.2
+  _slowDownDistance: 3
   _drawPath: 1
   _pathColor: {r: 0.5518868, g: 0.9914001, b: 1, a: 0.54509807}
   _currentNodeColor: {r: 0.42256808, g: 1, b: 0.2028302, a: 0.7529412}
+--- !u!114 &8585731344559606580
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2476932807520014211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3671cfacf1e122647979b2d860506a2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _locomotionType: 0
+  _maxSpeed: 14
+  _rotationSpeed: 15
+  _mass: 5
+  _maxForce: 8
 --- !u!1 &2800889443608963227
 GameObject:
   m_ObjectHideFlags: 0

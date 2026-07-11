@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-public class FlockAgent : SteeringAgent
+public class FlockAgent : SteeringController
 {
     /*
     [HideInInspector] public FlockManager manager;

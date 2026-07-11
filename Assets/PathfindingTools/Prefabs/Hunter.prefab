@@ -528,6 +528,7 @@ GameObject:
   - component: {fileID: 4046524042373550395}
   - component: {fileID: 4022376599798596564}
   - component: {fileID: 5054887400664324537}
+  - component: {fileID: 4601173867354760189}
   m_Layer: 0
   m_Name: Hunter
   m_TagString: Untagged
@@ -598,10 +599,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _solverType: 3
   _container: {fileID: 0}
-  _moveSpeed: 4
-  _rotationSpeed: 5
   _nodeReachDistance: 0.2
   _slowDownDistance: 0.1
   _drawPath: 0
   _pathColor: {r: 0.9607843, g: 0.8980392, b: 0.36862746, a: 0.5882353}
   _currentNodeColor: {r: 0, g: 0.78431374, b: 1, a: 0.6313726}
+--- !u!114 &4601173867354760189
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8796284243452123913}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3671cfacf1e122647979b2d860506a2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _locomotionType: 0
+  _maxSpeed: 10
+  _rotationSpeed: 15
+  _maxSteeringForce: 3
+  _mass: 1
+  _maxForce: 8

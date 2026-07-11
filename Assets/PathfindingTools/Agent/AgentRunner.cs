@@ -2,6 +2,7 @@
 using UnityEngine;
 using static PathfindingRunner;
 
+[RequireComponent(typeof(SteeringController))]
 public class AgentRunner : MonoBehaviour
 {
     [Header("Pathfinding")]
@@ -9,8 +10,6 @@ public class AgentRunner : MonoBehaviour
     [SerializeField] NodesContainer _container;
 
     [Header("Movement")]
-    [SerializeField, Min(0f)] float _moveSpeed = 5f;
-    [SerializeField, Min(0f)] float _rotationSpeed = 10f;
     [SerializeField, Min(0.01f)] float _nodeReachDistance = 0.2f;
 
     [Header("Arrive")]
@@ -22,7 +21,7 @@ public class AgentRunner : MonoBehaviour
     [SerializeField] Color _currentNodeColor = Color.yellow;
 
     PathfindingRunner _pathfinding;
-    KinematicMovement _movement;
+    SteeringController _steeringController;
 
     List<BaseNode> _currentPath = new();
     int _currentIndex;
@@ -34,16 +33,16 @@ public class AgentRunner : MonoBehaviour
 
     public NodesContainer CurrentContainer => _container;
     public bool IsMoving => _currentPath != null && _currentIndex < _currentPath.Count;
-    public Vector3 Velocity => _movement.Velocity;
-    public float MoveSpeed => _moveSpeed;
-    public float RotationSpeed => _rotationSpeed;
+    public Vector3 Velocity => _steeringController.Velocity;
     public float StopDistance { get; set; } = 0f;
 
     void Awake()
     {
-        _movement = new KinematicMovement(_rotationSpeed);
+        _steeringController = GetComponent<SteeringController>();
 
-        _pathfinding = gameObject.AddComponent<PathfindingRunner>();
+        _pathfinding = GetComponent<PathfindingRunner>();
+        if (!_pathfinding) _pathfinding = gameObject.AddComponent<PathfindingRunner>();
+
         _pathfinding.CurrentSolverType = _solverType;
         _pathfinding.Container = _container;
 
@@ -114,30 +113,35 @@ public class AgentRunner : MonoBehaviour
 
         if (_currentIndex >= _currentPath.Count)
         {
-            _currentPath.Clear();
+            StopMovement();
             OnDestinationReached?.Invoke();
             return;
         }
 
         Vector3 nodePos = _currentPath[_currentIndex].Position;
-        float speed = _moveSpeed;
 
         float remainingDistance = RemainingPathDistance();
 
         if (StopDistance > 0f && remainingDistance <= StopDistance)
         {
-            _currentPath.Clear();
+            StopMovement();
             OnDestinationReached?.Invoke();
             return;
         }
 
-        if (remainingDistance < _slowDownDistance)
-            speed = Mathf.Max(_moveSpeed * (remainingDistance / _slowDownDistance), 0.1f);
+        Vector3 direction = nodePos - transform.position;
+        direction.y = 0f;
 
-        bool arriveDestination =
-            _movement.MoveTowardsFlat(transform, nodePos, speed, _nodeReachDistance);
+        Vector3 steering = SteeringCalculator.Arrive(
+            direction,
+            remainingDistance,
+            _steeringController.Velocity,
+            _steeringController.MaxSpeed,
+            _slowDownDistance);
 
-        if (arriveDestination) _currentIndex++;
+        _steeringController.AddSteering(steering);
+
+        if (HasReachedNode(nodePos)) _currentIndex++;
     }
 
     float RemainingPathDistance()
@@ -151,7 +155,6 @@ public class AgentRunner : MonoBehaviour
 
         return distance;
     }
-
 
     Vector3 FindNearestNavegablePos(Vector3 target)
     {
@@ -215,6 +218,14 @@ public class AgentRunner : MonoBehaviour
                    position, closest.Position, radius, height, _container.Agent.ObstacleMask)
             && Perception.HasLineOfSight_Capsule(
                    closest.Position, position, radius, height, _container.Agent.ObstacleMask);
+    }
+
+    bool HasReachedNode(Vector3 nodePos)
+    {
+        Vector2 flatPos = new(transform.position.x, transform.position.z);
+        Vector2 flatNode = new(nodePos.x, nodePos.z);
+
+        return Vector2.Distance(flatPos, flatNode) <= _nodeReachDistance;
     }
 
     public bool HasDirectLOS(Vector3 destination)
