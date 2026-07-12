@@ -627,3 +627,4 @@ MonoBehaviour:
   _rotationSpeed: 15
   _mass: 1
   _maxForce: 8
+  _showSpeed: 0

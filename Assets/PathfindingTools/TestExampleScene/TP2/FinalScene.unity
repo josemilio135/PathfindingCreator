@@ -4064,6 +4064,10 @@ PrefabInstance:
       propertyPath: _stopDistance
       value: 2.5
       objectReference: {fileID: 0}
+    - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _slowDownDistance
+      value: 10
+      objectReference: {fileID: 0}
     - target: {fileID: 5104019025415893712, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: m_Layer
       value: 9
@@ -4855,6 +4859,10 @@ PrefabInstance:
     - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: _stopDistance
       value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _slowDownDistance
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 5104019025415893712, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: m_Layer
@@ -6215,6 +6223,10 @@ PrefabInstance:
     - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: _stopDistance
       value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _slowDownDistance
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 5104019025415893712, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: m_Layer
@@ -8529,6 +8541,10 @@ PrefabInstance:
       propertyPath: _stopDistance
       value: 2.5
       objectReference: {fileID: 0}
+    - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _slowDownDistance
+      value: 10
+      objectReference: {fileID: 0}
     - target: {fileID: 5104019025415893712, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: m_Layer
       value: 9
@@ -9243,8 +9259,8 @@ Mesh:
     firstVertex: 0
     vertexCount: 18
     localAABB:
-      m_Center: {x: -0.5787432, y: -0.000000059604645, z: 3.9780874}
-      m_Extent: {x: 5.0781107, y: 0.00000017881393, z: 3.9780874}
+      m_Center: {x: -1.0853664, y: 0.000000059604645, z: 3.9125905}
+      m_Extent: {x: 4.571488, y: 0.00000017881393, z: 3.9125905}
   m_Shapes:
     vertices: []
     shapes: []
@@ -9323,7 +9339,7 @@ Mesh:
       format: 0
       dimension: 0
     m_DataSize: 432
-    _typelessdata: 0000000000000000000000000d4feeb10000803ff4a53e31f304b5c000000000f404b540000000000000803f00000000241ba1c00000000008f3c640000000000000803f00000000776d8bc0000000001cb3d64000000000ffff7f3f00000000727168c0000000000019e440000000000000803f00000000017c37c00000000020ffee40000000000000803f00000000ee8304c000000000ea46f740000000000000803f000000005c30a0bf0000000024d9fc40000000000000803f00000000051356bf00000000fc98fe40000000000000803f000000006cbdc4be0000000056a0ea4046e5ddb30000803f9e10bab1d803bc3e00000034a238e040c785bcb30000803f0e3e55b2dff4873f000000345099d6405454f7b1ffff7f3fa1e68eb2333cdc3f00000034707bcd405b54f7b10000803fa1e68eb21af8164000000034e0a4c4406e8c7b34ffff7f3fa8c7eab3749b3e40000080b43c0bbb40b29b3d340000803f7d4053b35ed75f40000000b4bc57ac40baa711b40000803f5ab6ec3315068040000000009c189e4055df14b40000803fea1bf133d2fa8f4000000034d2fa8f400c8f15b40000803f7f38f233
+    _typelessdata: 00000000000000000000000022bd80b20000803f587beab1f304b5c000000000f404b540000000000000803f00000000241ba1c00000000008f3c640000000000000803f00000000776d8bc0000000001cb3d640000000000000803f00000000717168c0000000000019e440000000000000803f00000000017c37c00000000020ffee40000000000000803f00000000ee8304c000000000ea46f740000000000000803f00000000cee6d4bf00000000e267fa408ab82ab40000803fbf2611b3b8cc70bf000000342c0bbe40b39b2ab4ffff7f3f6e4c42b31ce197be000000347c20b540053120b2ffff7f3f071cb9b2d824913e000000342a18ad40f23020b20000803f081cb9b254e9513f000000348aaaa5400e3120b20000803f051cb9b26804aa3f00000034d2a09e40902ff9b30000803f9505f2312617e93f000080342cce974004a04b340000803fcf2004b4d7ae1340000000b40eec9040bea866340000803fc686b2b3cb6e2d400000000014888540b239cdb30000803f5f468533e36246400000000090fc74407224c0b30000803f08989b339d1c5f40000000349c1c5f403d0741b40000803faf4f1c34
   m_CompressedMesh:
     m_Vertices:
       m_NumItems: 0
@@ -9377,8 +9393,8 @@ Mesh:
       m_BitSize: 0
     m_UVInfo: 0
   m_LocalAABB:
-    m_Center: {x: -0.5787432, y: -0.000000059604645, z: 3.9780874}
-    m_Extent: {x: 5.0781107, y: 0.00000017881393, z: 3.9780874}
+    m_Center: {x: -1.0853664, y: 0.000000059604645, z: 3.9125905}
+    m_Extent: {x: 4.571488, y: 0.00000017881393, z: 3.9125905}
   m_MeshUsageFlags: 0
   m_CookingOptions: 30
   m_BakedConvexCollisionMesh: 
@@ -16011,6 +16027,10 @@ PrefabInstance:
     - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: _stopDistance
       value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5054887400664324537, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
+      propertyPath: _slowDownDistance
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 5104019025415893712, guid: f3a1c7f35452ed64a8272803e4049244, type: 3}
       propertyPath: m_Layer

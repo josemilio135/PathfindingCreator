@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using static PathfindingRunner;
- 
+
 public class AgentRunner : Steerings
 {
     [Header("Pathfinding")]
@@ -19,7 +19,7 @@ public class AgentRunner : Steerings
     [SerializeField] Color _pathColor = Color.white;
     [SerializeField] Color _currentNodeColor = Color.yellow;
 
-    PathfindingRunner _pathfinding; 
+    PathfindingRunner _pathfinding;
 
     List<BaseNode> _currentPath = new();
     int _currentIndex;
@@ -30,7 +30,7 @@ public class AgentRunner : Steerings
 
     public NodesContainer CurrentContainer => _container;
     public bool IsMoving => _currentPath != null && _currentIndex < _currentPath.Count;
-    public Vector3 Velocity =>  Controller.Velocity;
+    public Vector3 Velocity => Controller.Velocity;
     public float StopDistance { get; set; } = 0f;
 
     protected override void Awake()
@@ -105,7 +105,8 @@ public class AgentRunner : Steerings
 
     void FollowPath()
     {
-        if (_currentPath == null || _currentPath.Count == 0) return;
+        if (_currentPath == null || _currentPath.Count == 0)
+            return;
 
         if (_currentIndex >= _currentPath.Count)
         {
@@ -113,8 +114,6 @@ public class AgentRunner : Steerings
             OnDestinationReached?.Invoke();
             return;
         }
-
-        Vector3 nodePos = _currentPath[_currentIndex].Position;
 
         float remainingDistance = RemainingPathDistance();
 
@@ -125,22 +124,39 @@ public class AgentRunner : Steerings
             return;
         }
 
-        if (HasReachedNode(nodePos)) _currentIndex++;
+        if (remainingDistance <= _slowDownDistance)
+            return;
+
+        if (HasReachedNode(_currentPath[_currentIndex].Position))
+            _currentIndex++;
     }
+
     protected override Vector3 CalculateSteering()
     {
-        if (_currentPath == null || _currentIndex >= _currentPath.Count) return Vector3.zero;
+        if (_currentPath == null || _currentIndex >= _currentPath.Count)
+            return Vector3.zero;
 
-        Vector3 direction = _currentPath[_currentIndex].Position - transform.position;
-        direction.y = 0f;
+        float remainingDistance = RemainingPathDistance();
 
-        return SteeringCalculator.Arrive(
-            direction,
-            RemainingPathDistance(),
-            Controller.Velocity, Controller.MaxSpeed, 
-            _slowDownDistance);
+        if (remainingDistance <= _slowDownDistance)
+        {
+            Vector3 direction = _currentPath[^1].Position - transform.position;
 
+            return SteeringCalculator.Arrive(
+                direction,
+                remainingDistance,
+                Controller.Velocity,
+                Controller.MaxSpeed,
+                _slowDownDistance);
+        }
+
+        return SteeringCalculator.Seek(
+            transform.position,
+            _currentPath[_currentIndex].Position,
+            Controller.Velocity,
+            Controller.MaxSpeed);
     }
+
     float RemainingPathDistance()
     {
         if (_currentPath == null || _currentIndex >= _currentPath.Count) return 0f;
@@ -148,7 +164,9 @@ public class AgentRunner : Steerings
         float distance = Vector3.Distance(transform.position, _currentPath[_currentIndex].Position);
 
         for (int i = _currentIndex; i < _currentPath.Count - 1; i++)
+        {
             distance += Vector3.Distance(_currentPath[i].Position, _currentPath[i + 1].Position);
+        }
 
         return distance;
     }
@@ -156,12 +174,12 @@ public class AgentRunner : Steerings
     Vector3 FindNearestNavegablePos(Vector3 target)
     {
         return AgentPhysics.FindNearestValidPosition(
-            target, 
+            target,
             _container.MaxNodeRadius, _container.Agent.Radius,
             IsPositionWalkable);
 
     }
-     
+
     bool IsPositionWalkable(Vector3 position)
     {
         AgentConfig agent = _container.Agent;
