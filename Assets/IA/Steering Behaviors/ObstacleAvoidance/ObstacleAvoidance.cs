@@ -1,29 +1,22 @@
 using UnityEngine;
 
-[RequireComponent(typeof(SteeringController))]
-public class ObstacleAvoidanceSteering : MonoBehaviour
+public class ObstacleAvoidanceSteering : Steerings
 {
-    public enum AvoidMode
-    {
-        Whiskers,
-        Predictive
-    }
+    public enum AvoidMode { Predictive, Whiskers }
 
     const float VelocityThreshold = .01f;
     const float GroundOffset = .05f;
-    const float HitGizmoRadius = .08f;
     const float AvoidVectorScale = .35f;
 
     [Header("General")]
-
-    [Tooltip("Importance compared to other steering.")]
-    [SerializeField, Range(0f, 10f)] float _weight = 1.5f;
 
     [Tooltip("Obstacle avoidance method.")]
     [SerializeField] AvoidMode _mode = AvoidMode.Predictive;
 
     [Tooltip("Layers treated as obstacles.")]
     [SerializeField] LayerMask _obstacleMask;
+
+    [Space]
 
     [Tooltip("Automatically scales look ahead using current speed.")]
     [SerializeField] bool _automaticLookAhead = true;
@@ -41,54 +34,69 @@ public class ObstacleAvoidanceSteering : MonoBehaviour
     [Tooltip("SphereCast radius.")]
     [SerializeField, Min(.05f)] float _bodyRadius = .4f;
 
+#if UNITY_EDITOR
     [Header("Debug")]
-
     [SerializeField] bool _showGizmos = true;
-
-    [SerializeField] Color _rayColor = Color.green;
-    [SerializeField] Color _hitColor = Color.red;
-    [SerializeField] Color _avoidColor = Color.magenta;
-
-    SteeringController _steeringController;
+    [SerializeField] Color _gizmoColor = Color.cyan;
+#endif
 
     Vector3 _lastAvoidance;
-
-    bool _hasHit;
-
     float _currentLookAhead;
 
-    RaycastHit _centerHit;
-    RaycastHit _leftHit;
-    RaycastHit _rightHit;
+#if UNITY_EDITOR
+    bool _hasHit;
     RaycastHit _predictHit;
+#endif
 
-    void Awake()
+    protected override Vector3 CalculateSteering()
     {
-        _steeringController = GetComponent<SteeringController>();
-    }
-
-    void Update()
-    {
-        _hasHit = false;
-
         if (_automaticLookAhead)
         {
-            float speedPercent =
-                _steeringController.Velocity.magnitude / Mathf.Max(_steeringController.MaxSpeed, .01f);
-
+            float speedPercent = Controller.Velocity.magnitude / Mathf.Max(Controller.MaxSpeed, .01f);
             _currentLookAhead = Mathf.Lerp(.5f, _lookAhead, speedPercent);
         }
         else _currentLookAhead = _lookAhead;
 
-        Vector3 avoidance =
-            _mode == AvoidMode.Whiskers
-            ? AvoidWithWhiskers()
-            : AvoidWithPrediction();
+        Vector3 avoidance = _mode == AvoidMode.Whiskers ?
+            AvoidWithWhiskers() : AvoidWithPrediction();
 
+#if UNITY_EDITOR
         _lastAvoidance = avoidance;
+#endif
+        return avoidance;
+    }
 
-        if (avoidance != Vector3.zero)
-            _steeringController.AddSteering(avoidance, _weight);
+    #region Whiskers
+    Vector3 AvoidWithWhiskers()
+    {
+        Vector3 origin = transform.position + Vector3.up * GroundOffset;
+        Vector3 forward = transform.forward;
+
+        Vector3 result = Vector3.zero;
+
+        if (CastWhisker(origin, forward, out RaycastHit centerHit))
+        {
+            float urgency = 1f - (centerHit.distance / _currentLookAhead);
+            result += Vector3.Reflect(forward, centerHit.normal) * urgency;
+        }
+
+        Vector3 left = Quaternion.Euler(0f, -_whiskerAngle, 0f) * forward;
+
+        if (CastWhisker(origin, left, out RaycastHit leftHit))
+        {
+            float urgency = 1f - (leftHit.distance / _currentLookAhead);
+            result += transform.right * urgency;
+        }
+
+        Vector3 right = Quaternion.Euler(0f, _whiskerAngle, 0f) * forward;
+
+        if (CastWhisker(origin, right, out RaycastHit rightHit))
+        {
+            float urgency = 1f - (rightHit.distance / _currentLookAhead);
+            result -= transform.right * urgency;
+        }
+
+        return result.normalized;
     }
 
     bool CastWhisker(Vector3 origin, Vector3 direction, out RaycastHit hit)
@@ -98,153 +106,76 @@ public class ObstacleAvoidanceSteering : MonoBehaviour
             _currentLookAhead, _obstacleMask,
             QueryTriggerInteraction.Ignore);
     }
+    #endregion
 
-    Vector3 AvoidWithWhiskers()
-    {
-        Vector3 origin = transform.position + Vector3.up * GroundOffset;
-        Vector3 forward = transform.forward;
-
-        Vector3 result = Vector3.zero;
-
-        if (CastWhisker(origin, forward, out _centerHit))
-        {
-            float urgency = 1f - (_centerHit.distance / _currentLookAhead);
-
-            result += Vector3.Reflect(forward, _centerHit.normal) * urgency;
-
-            _hasHit = true;
-        }
-
-        Vector3 left = Quaternion.Euler(0f, -_whiskerAngle, 0f) * forward;
-
-        if (CastWhisker(origin, left, out _leftHit))
-        {
-            float urgency = 1f - (_leftHit.distance / _currentLookAhead);
-
-            result += transform.right * urgency;
-
-            _hasHit = true;
-        }
-
-        Vector3 right = Quaternion.Euler(0f, _whiskerAngle, 0f) * forward;
-
-        if (CastWhisker(origin, right, out _rightHit))
-        {
-            float urgency = 1f - (_rightHit.distance / _currentLookAhead);
-
-            result -= transform.right * urgency;
-
-            _hasHit = true;
-        }
-
-        return result.normalized;
-    }
-
+    #region Prediction
     Vector3 AvoidWithPrediction()
     {
-        Vector3 velocity = _steeringController.Velocity;
+        Vector3 velocity = Controller.Velocity;
 
         if (velocity.sqrMagnitude < VelocityThreshold * VelocityThreshold)
+        {
+#if UNITY_EDITOR
+            _hasHit = false;
+#endif
             return Vector3.zero;
+        }
 
         Vector3 direction = velocity.normalized;
         Vector3 origin = transform.position + Vector3.up * _bodyRadius;
 
-        if (Perception.HasLineOfSight_Sphere(
+        bool clear = Perception.HasLineOfSight_Sphere(
             origin, origin + direction * _currentLookAhead,
-            _bodyRadius, _obstacleMask, out _predictHit))
-        {
-            return Vector3.zero;
-        }
+            _bodyRadius, _obstacleMask, out RaycastHit predictHit);
 
-        _hasHit = true;
+#if UNITY_EDITOR
+        _hasHit = !clear;
+        _predictHit = predictHit;
+#endif
 
-        Vector3 tangent =
-            Vector3.Cross(_predictHit.normal, Vector3.up).normalized;
+        if (clear) return Vector3.zero;
 
-        float sign =
-            Vector3.Dot(tangent, direction) >= 0f ? 1f : -1f;
+        Vector3 tangent = Vector3.Cross(predictHit.normal, Vector3.up).normalized;
+        float sign = Vector3.Dot(tangent, direction) >= 0f ? 1f : -1f;
 
-        return (tangent * sign + _predictHit.normal).normalized;
+        return (tangent * sign + predictHit.normal).normalized;
     }
+    #endregion
 
     #region Gizmos
-
+#if UNITY_EDITOR
     void OnDrawGizmos()
     {
         if (!_showGizmos) return;
 
-        float lookAhead =
-            Application.isPlaying ? _currentLookAhead : _lookAhead;
+        Gizmos.color = _gizmoColor;
 
+        float lookAhead = Application.isPlaying ? _currentLookAhead : _lookAhead;
         Vector3 origin = transform.position + Vector3.up * GroundOffset;
 
         if (_mode == AvoidMode.Whiskers)
         {
-            DrawWhisker(origin, transform.forward, lookAhead);
-
-            DrawWhisker(
-                origin,
-                Quaternion.Euler(0f, -_whiskerAngle, 0f) * transform.forward,
-                lookAhead);
-
-            DrawWhisker(
-                origin,
-                Quaternion.Euler(0f, _whiskerAngle, 0f) * transform.forward,
-                lookAhead);
-
-            DrawHit(_centerHit);
-            DrawHit(_leftHit);
-            DrawHit(_rightHit);
+            Gizmos.DrawLine(origin, origin + transform.forward * lookAhead);
+            Gizmos.DrawLine(origin, origin + Quaternion.Euler(0f, -_whiskerAngle, 0f) * transform.forward * lookAhead);
+            Gizmos.DrawLine(origin, origin + Quaternion.Euler(0f, _whiskerAngle, 0f) * transform.forward * lookAhead);
         }
         else
         {
-            Vector3 dir =
-                Application.isPlaying &&
-                _steeringController != null &&
-                _steeringController.Velocity.sqrMagnitude >
-                VelocityThreshold * VelocityThreshold
-                ? _steeringController.Velocity.normalized
-                : transform.forward;
+            Vector3 dir = Application.isPlaying && Controller != null &&
+                Controller.Velocity.sqrMagnitude > VelocityThreshold * VelocityThreshold ?
+                Controller.Velocity.normalized : transform.forward;
 
-            Vector3 end = origin + dir * lookAhead;
+            Vector3 predictOrigin = transform.position + Vector3.up * _bodyRadius;
+            float rayLength = _hasHit ? _predictHit.distance : lookAhead;
 
-            Gizmos.color = _rayColor;
-            Gizmos.DrawLine(origin, end);
+            Gizmos.DrawLine(predictOrigin, predictOrigin + dir * rayLength);
 
-            Gizmos.DrawWireSphere(origin, _bodyRadius);
-            Gizmos.DrawWireSphere(end, _bodyRadius);
-
-            if (_hasHit)
-            {
-                Gizmos.color = _hitColor;
-                Gizmos.DrawWireSphere(_predictHit.point, HitGizmoRadius);
-            }
+            Gizmos.DrawWireSphere(origin + transform.forward * lookAhead, _bodyRadius);
         }
 
         if (Application.isPlaying)
-        {
-            Gizmos.color = _avoidColor;
-
-            Gizmos.DrawLine(
-                transform.position,
-                transform.position +
-                _lastAvoidance * AvoidVectorScale);
-        }
+            Gizmos.DrawLine(transform.position, transform.position + _lastAvoidance * AvoidVectorScale);
     }
-
-    void DrawWhisker(Vector3 origin, Vector3 direction, float distance)
-    {
-        Gizmos.color = _rayColor;
-        Gizmos.DrawLine(origin, origin + direction * distance);
-    }
-    void DrawHit(RaycastHit hit)
-    {
-        if (hit.collider == null) return;
-
-        Gizmos.color = _hitColor;
-        Gizmos.DrawWireSphere(hit.point, HitGizmoRadius);
-    }
-
+#endif
     #endregion
 }

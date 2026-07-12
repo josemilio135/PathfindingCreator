@@ -1,23 +1,18 @@
 using UnityEngine;
 
-[RequireComponent(typeof(SteeringController))]
-public class SeekSteering : MonoBehaviour
+public class SeekSteering : Steerings
 {
-    [SerializeField, Range(0f, 3f)] float _weight = 1f;
     [SerializeField] Transform _target;
 
-    SteeringController _steeringController;
-
-    void Awake() => _steeringController = GetComponent<SteeringController>();
-
-    void Update()
+    protected override Vector3 CalculateSteering()
     {
-        if (_target == null) return;
+        if (_target == null) return Vector3.zero;
 
-        Vector3 steering = SteeringCalculator.Seek(
-            transform.position, _target.position,
-            _steeringController.Velocity, _steeringController.MaxSpeed);
-
-        _steeringController.AddSteering(steering, _weight);
+        return SteeringCalculator.Seek(
+            transform.position,
+            _target.position,
+            Controller.Velocity,
+            Controller.MaxSpeed);
     }
+
 }

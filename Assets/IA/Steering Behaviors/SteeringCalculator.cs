@@ -79,7 +79,7 @@ public static class SteeringCalculator
 
     #region Wander
 
-    public static Vector3 Wander(Vector3 position, Vector3 forward, float maxSpeed, ref Vector3 wanderTarget, float radius = 2f, float distance = 4f, float jitter = 40f)
+    public static Vector3 Wander(Vector3 position, Vector3 forward, Vector3 velocity, float maxSpeed, ref Vector3 wanderTarget, float radius = 2f, float distance = 4f, float jitter = 40f)
     {
         wanderTarget += new Vector3(
             Random.Range(-1f, 1f),
@@ -91,7 +91,7 @@ public static class SteeringCalculator
         Vector3 circleCenter = position + forward * distance;
         Vector3 worldTarget = circleCenter + wanderTarget;
 
-        return Seek(position, worldTarget, Vector3.zero, maxSpeed);
+        return Seek(position, worldTarget, velocity, maxSpeed);
     }
 
     #endregion

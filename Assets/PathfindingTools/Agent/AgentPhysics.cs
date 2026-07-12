@@ -21,6 +21,8 @@ public static class AgentPhysics
     //Max distance to find a ground
     const float GROUND_CAST_DEPTH = 100f;
 
+    // Small buffer kept from the hit surface to avoid floating-point jitter against walls.
+    const float SkinWidth = .02f;
 
     /// <summary>
     /// Attempts to find a walkable ground point directly below the origin.
@@ -157,5 +159,80 @@ public static class AgentPhysics
     static bool IsWalkableSurface(Vector3 normal)
     {
         return Vector3.Dot(normal, Vector3.up) >= WALKABLE_SLOPE_THRESHOLD;
+    }
+
+    /// <summary>
+    /// Returns true if an agent capsule can physically stand at this position:
+    /// no vertical obstruction, no obstacle overlap, and valid ground below.
+    /// </summary>
+    public static bool IsWalkable(
+        Vector3 position, float agentRadius, float agentHeight,
+        LayerMask obstacleMask, LayerMask walkableMask)
+    {
+        if (Physics.Raycast(position + Vector3.up * 0.01f, Vector3.up, agentHeight,
+            obstacleMask, QueryTriggerInteraction.Ignore))
+            return false;
+
+        Vector3 bottom = position + Vector3.up * agentRadius;
+        Vector3 top = position + Vector3.up * (agentHeight - agentRadius);
+
+        if (Physics.CheckCapsule(bottom, top, agentRadius, obstacleMask, QueryTriggerInteraction.Ignore))
+            return false;
+
+        return TryGetGroundBelow(position + Vector3.up * 5f, 10f, walkableMask, out _);
+    }
+
+    /// <summary>
+    /// Samples rings outward from target until isValid returns true. Generic
+    /// spatial search, independent from any specific validity criteria.
+    /// </summary>
+    public static Vector3 FindNearestValidPosition(
+        Vector3 target, float maxRadius, float stepRadius,
+        System.Func<Vector3, bool> isValid, int samplesPerRing = 16)
+    {
+        if (isValid(target)) return target;
+
+        for (float radius = stepRadius; radius <= maxRadius; radius += stepRadius)
+        {
+            for (int i = 0; i < samplesPerRing; i++)
+            {
+                float angle = (360f / samplesPerRing) * i;
+                Vector3 candidate = target + Quaternion.Euler(0, angle, 0) * Vector3.forward * radius;
+                if (isValid(candidate)) return candidate;
+            }
+        }
+
+        return target;
+    }
+
+    /// <summary>
+    /// Shortens a desired movement delta so the agents capsule never crosses an obstacle.
+    /// </summary>   
+    public static Vector3 ClampMovement(
+        Vector3 position, Vector3 desiredDelta,
+        float agentRadius, float agentHeight, LayerMask obstacleMask)
+    {
+        float distance = desiredDelta.magnitude;
+        if (distance <= 0f) return desiredDelta;
+
+        Vector3 direction = desiredDelta / distance;
+        float castRadius = Mathf.Max(agentRadius - SkinWidth, 0.01f);
+        Vector3 destination = position + desiredDelta;
+
+        bool blocked = !Perception.HasLineOfSight_Capsule(
+            position, destination, castRadius, agentHeight, obstacleMask, out RaycastHit hit);
+
+        if (!blocked) return desiredDelta;
+
+        bool movingAway = hit.normal != Vector3.zero && Vector3.Dot(direction, hit.normal) >= 0f;
+        Vector3 result = movingAway ? desiredDelta : Vector3.ProjectOnPlane(desiredDelta, hit.normal);
+
+        Vector3 bottom = position + result + Vector3.up * castRadius;
+        Vector3 top = position + result + Vector3.up * (agentHeight - castRadius);
+
+        if (Physics.CheckCapsule(bottom, top, castRadius, obstacleMask, QueryTriggerInteraction.Ignore))
+            return Vector3.zero;
+
+        return result;
     }
 }

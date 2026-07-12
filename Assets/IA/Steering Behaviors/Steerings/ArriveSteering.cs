@@ -1,28 +1,23 @@
 using UnityEngine;
 
-[RequireComponent(typeof(SteeringController))]
-public class ArriveSteering : MonoBehaviour
+public class ArriveSteering : Steerings
 {
-    [SerializeField, Range(0f, 3f)] float _weight = 1f;
     [SerializeField] Transform _target;
     [SerializeField, Min(0f)] float _slowingRadius = 2f;
     [SerializeField] float _arrivalDistance = .1f;
 
-    SteeringController _steeringController;
-
-    void Awake() => _steeringController = GetComponent<SteeringController>();
-
-    void Update()
+    protected override Vector3 CalculateSteering()
     {
-        if (_target == null) return;
-        if (Vector3.Distance(transform.position, _target.position) <= _arrivalDistance)
-            return;
+        if (_target == null) return Vector3.zero;
 
-        Vector3 steering = SteeringCalculator.Arrive(
-            transform.position, _target.position,
-            _steeringController.Velocity, _steeringController.MaxSpeed,
-            _slowingRadius);
+        if (Vector3.Distance(transform.position, _target.position) <= _arrivalDistance) return Vector3.zero;
 
-        _steeringController.AddSteering(steering, _weight);
+        return SteeringCalculator.Arrive(
+             transform.position,
+             _target.position,
+             Controller.Velocity,
+             Controller.MaxSpeed,
+             _slowingRadius);
+
     }
 }

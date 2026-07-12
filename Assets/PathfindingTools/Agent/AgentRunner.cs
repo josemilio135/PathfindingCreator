@@ -1,9 +1,8 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using static PathfindingRunner;
-
-[RequireComponent(typeof(SteeringController))]
-public class AgentRunner : MonoBehaviour
+ 
+public class AgentRunner : Steerings
 {
     [Header("Pathfinding")]
     [SerializeField] SolverType _solverType = SolverType.AStar;
@@ -20,25 +19,23 @@ public class AgentRunner : MonoBehaviour
     [SerializeField] Color _pathColor = Color.white;
     [SerializeField] Color _currentNodeColor = Color.yellow;
 
-    PathfindingRunner _pathfinding;
-    SteeringController _steeringController;
+    PathfindingRunner _pathfinding; 
 
     List<BaseNode> _currentPath = new();
     int _currentIndex;
     WaypointNode _tempStart;
     WaypointNode _tempEnd;
-    float _graphMaxRadius;
 
     public System.Action OnDestinationReached;
 
     public NodesContainer CurrentContainer => _container;
     public bool IsMoving => _currentPath != null && _currentIndex < _currentPath.Count;
-    public Vector3 Velocity => _steeringController.Velocity;
+    public Vector3 Velocity =>  Controller.Velocity;
     public float StopDistance { get; set; } = 0f;
 
-    void Awake()
+    protected override void Awake()
     {
-        _steeringController = GetComponent<SteeringController>();
+        base.Awake();
 
         _pathfinding = GetComponent<PathfindingRunner>();
         if (!_pathfinding) _pathfinding = gameObject.AddComponent<PathfindingRunner>();
@@ -48,8 +45,6 @@ public class AgentRunner : MonoBehaviour
 
         _tempStart = CreateTempNode("Start");
         _tempEnd = CreateTempNode("End");
-
-        _graphMaxRadius = ComputeGraphMaxRadius();
     }
 
     WaypointNode CreateTempNode(string label)
@@ -102,9 +97,10 @@ public class AgentRunner : MonoBehaviour
 
     public void StopMovement() => _currentPath?.Clear();
 
-    void Update()
+    protected override void Update()
     {
         FollowPath();
+        base.Update();
     }
 
     void FollowPath()
@@ -129,21 +125,22 @@ public class AgentRunner : MonoBehaviour
             return;
         }
 
-        Vector3 direction = nodePos - transform.position;
-        direction.y = 0f;
-
-        Vector3 steering = SteeringCalculator.Arrive(
-            direction,
-            remainingDistance,
-            _steeringController.Velocity,
-            _steeringController.MaxSpeed,
-            _slowDownDistance);
-
-        _steeringController.AddSteering(steering);
-
         if (HasReachedNode(nodePos)) _currentIndex++;
     }
+    protected override Vector3 CalculateSteering()
+    {
+        if (_currentPath == null || _currentIndex >= _currentPath.Count) return Vector3.zero;
 
+        Vector3 direction = _currentPath[_currentIndex].Position - transform.position;
+        direction.y = 0f;
+
+        return SteeringCalculator.Arrive(
+            direction,
+            RemainingPathDistance(),
+            Controller.Velocity, Controller.MaxSpeed, 
+            _slowDownDistance);
+
+    }
     float RemainingPathDistance()
     {
         if (_currentPath == null || _currentIndex >= _currentPath.Count) return 0f;
@@ -158,66 +155,25 @@ public class AgentRunner : MonoBehaviour
 
     Vector3 FindNearestNavegablePos(Vector3 target)
     {
-        if (IsPositionWalkable(target)) return target;
+        return AgentPhysics.FindNearestValidPosition(
+            target, 
+            _container.MaxNodeRadius, _container.Agent.Radius,
+            IsPositionWalkable);
 
-        float stepRadius = _container.Agent.Radius;
-        int samplesPerRing = 16;
-
-        for (float radius = stepRadius; radius <= _graphMaxRadius; radius += stepRadius)
-        {
-            for (int i = 0; i < samplesPerRing; i++)
-            {
-                float angle = (360f / samplesPerRing) * i;
-                Vector3 candidate = target + Quaternion.Euler(0, angle, 0) * Vector3.forward * radius;
-                if (IsPositionWalkable(candidate)) return candidate;
-            }
-        }
-
-        return target;
     }
-
-    float ComputeGraphMaxRadius()
-    {
-        float maxDist = 0f;
-        foreach (BaseNode a in _container.Nodes)
-        {
-            if (a == null) continue;
-            foreach (BaseNode b in _container.Nodes)
-            {
-                if (b == null || b == a) continue;
-                float dist = Vector3.SqrMagnitude(a.Position - b.Position);
-                if (dist > maxDist) maxDist = dist;
-            }
-        }
-        return Mathf.Sqrt(maxDist);
-    }
-
+     
     bool IsPositionWalkable(Vector3 position)
     {
-        float radius = _container.Agent.Radius;
-        float height = _container.Agent.Height;
+        AgentConfig agent = _container.Agent;
 
-        if (Physics.Raycast(position + Vector3.up * 0.01f, Vector3.up, height,
-            _container.Agent.ObstacleMask, QueryTriggerInteraction.Ignore))
-            return false;
-
-        Vector3 bottom = position + Vector3.up * radius;
-        Vector3 top = position + Vector3.up * (height - radius);
-
-        if (Physics.CheckCapsule(bottom, top, radius, _container.Agent.ObstacleMask))
-            return false;
-
-        if (!AgentPhysics.TryGetGroundBelow(
-            position + Vector3.up * 5f, 10f, _container.Agent.WalkableMask, out _))
+        if (!AgentPhysics.IsWalkable(position, agent.Radius, agent.Height, agent.ObstacleMask, agent.WalkableMask))
             return false;
 
         BaseNode closest = _container.FindClosestNode(position);
         if (closest == null) return false;
 
-        return Perception.HasLineOfSight_Capsule(
-                   position, closest.Position, radius, height, _container.Agent.ObstacleMask)
-            && Perception.HasLineOfSight_Capsule(
-                   closest.Position, position, radius, height, _container.Agent.ObstacleMask);
+        return Perception.HasLineOfSight_Capsule(position, closest.Position, agent.Radius, agent.Height, agent.ObstacleMask)
+            && Perception.HasLineOfSight_Capsule(closest.Position, position, agent.Radius, agent.Height, agent.ObstacleMask);
     }
 
     bool HasReachedNode(Vector3 nodePos)

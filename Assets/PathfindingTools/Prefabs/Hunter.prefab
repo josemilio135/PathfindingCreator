@@ -597,6 +597,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 193667a53d07e0b48a616795bdff835c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _weight: 1
   _solverType: 3
   _container: {fileID: 0}
   _nodeReachDistance: 0.2
@@ -616,9 +617,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3671cfacf1e122647979b2d860506a2e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _radius: 0.4
+  _height: 2
+  _obstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
   _locomotionType: 0
   _maxSpeed: 10
   _rotationSpeed: 15
-  _maxSteeringForce: 3
   _mass: 1
   _maxForce: 8

@@ -43,7 +43,7 @@ public class NodesContainer : MonoBehaviour
     public int EstimatedThetaStar => EstimatedDijkstra + ConnectionCount;
     public int EstimatedThetaStarSmooth => EstimatedDijkstra + (ConnectionCount * 2);
     #endregion
-
+     
     public void Reset()
     {
         foreach (BaseNode node in _nodes)
@@ -243,6 +243,34 @@ public class NodesContainer : MonoBehaviour
 
     #endregion
 
+    #region NodesRadius 
+    float? _maxRadiusCache;
+    public float MaxNodeRadius
+    {
+        get
+        {
+            if (_maxRadiusCache.HasValue) return _maxRadiusCache.Value;
+
+            float maxDist = 0f;
+            foreach (BaseNode a in _nodes)
+            {
+                if (a == null) continue;
+                foreach (BaseNode b in _nodes)
+                {
+                    if (b == null || b == a) continue;
+                    float dist = Vector3.SqrMagnitude(a.Position - b.Position);
+                    if (dist > maxDist) maxDist = dist;
+                }
+            }
+
+            _maxRadiusCache = Mathf.Sqrt(maxDist);
+            return _maxRadiusCache.Value;
+        }
+    }
+    #endregion
+
+    #region Gizmos
+
 #if UNITY_EDITOR
 
     void OnValidate()
@@ -294,4 +322,5 @@ public class NodesContainer : MonoBehaviour
         }
     }
 #endif
+    #endregion
 }

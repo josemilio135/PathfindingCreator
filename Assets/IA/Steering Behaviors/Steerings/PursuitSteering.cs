@@ -1,44 +1,41 @@
 using UnityEngine;
-
-[RequireComponent(typeof(SteeringController))]
-public class PursuitSteering : MonoBehaviour
-{
-    [SerializeField, Range(0f, 3f)] float _weight = 1f;
+ 
+public class PursuitSteering : Steerings
+{ 
     [SerializeField] Transform _prey;
-
-    SteeringController _steeringController;
+     
     SteeringController _preyController;
 
-    void Awake()
+    protected override void Awake()
     {
-        _steeringController = GetComponent<SteeringController>();
+        base.Awake();
         if (_prey != null) _preyController = _prey.GetComponent<SteeringController>();
     }
-
-    void Update()
+     
+    protected override Vector3 CalculateSteering()
     {
-        if (_prey == null) return;
-
         Vector3 steering = Vector3.zero;
+
+        if (_prey == null) return steering;
 
         if (_preyController != null)
         {
             steering = SteeringCalculator.Pursuit(
                 transform.position,
-                _steeringController.Velocity,
-                _steeringController.MaxSpeed,
+                Controller.Velocity,
+                Controller.MaxSpeed,
                 _preyController);
         }
         else
         {
             steering = SteeringCalculator.Pursuit(
                 transform.position,
-                _steeringController.Velocity,
-                _steeringController.MaxSpeed,
+                Controller.Velocity,
+                Controller.MaxSpeed,
                 _prey.position,
                 Vector3.zero);
         }
 
-        _steeringController.AddSteering(steering, _weight);
+        return steering; 
     }
 }

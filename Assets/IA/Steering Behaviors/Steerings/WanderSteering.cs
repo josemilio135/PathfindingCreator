@@ -1,24 +1,42 @@
 using UnityEngine;
-
-[RequireComponent(typeof(SteeringController))]
-public class WanderSteering : MonoBehaviour
+public class WanderSteering : Steerings
 {
-    [SerializeField, Range(0f, 3f)] float _weight = 1f;
     [SerializeField, Min(0f)] float _radius = 2f;
     [SerializeField, Min(0f)] float _distance = 4f;
-    [SerializeField, Min(0f)] float _jitter = 40f;
+    [SerializeField, Range(0, 360)] float _jitter = 40f;
 
-    SteeringController _steeringController;
+#if UNITY_EDITOR
+    [Header("Debug")]
+    [SerializeField] bool _showGizmos = true;
+#endif
+
     Vector3 _wanderTarget;
 
-    void Awake() => _steeringController = GetComponent<SteeringController>();
-
-    void Update()
+    protected override Vector3 CalculateSteering()
     {
-        Vector3 steering = SteeringCalculator.Wander(
-            transform.position, transform.forward, _steeringController.MaxSpeed,
-            ref _wanderTarget, _radius, _distance, _jitter);
-
-        _steeringController.AddSteering(steering, _weight);
+        return SteeringCalculator.Wander(
+           transform.position,
+           transform.forward,
+           Controller.Velocity,
+           Controller.MaxSpeed,
+           ref _wanderTarget,
+           _radius,
+           _distance,
+           _jitter);
     }
+
+#if UNITY_EDITOR
+    void OnDrawGizmos()
+    {
+        if (!_showGizmos || !Application.isPlaying) return;
+
+        Vector3 circleCenter = transform.position + transform.forward * _distance;
+        Vector3 targetPoint = circleCenter + _wanderTarget;
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(circleCenter, _radius);
+        Gizmos.DrawSphere(targetPoint, 0.15f);
+        Gizmos.DrawLine(transform.position, targetPoint);
+    }
+#endif
 }
