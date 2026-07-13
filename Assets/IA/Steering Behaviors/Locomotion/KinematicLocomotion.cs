@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+
 public class KinematicLocomotion : LocomotionBase
 {
     public KinematicLocomotion(float rotationSpeed, float radius, float height, LayerMask obstacleMask)
@@ -15,6 +16,12 @@ public class KinematicLocomotion : LocomotionBase
 
     public override void SetIdle(float brakeForce = 2f, bool instant = false)
     {
-        _velocity = Vector3.zero;
+        if (instant)
+        {
+            _velocity = Vector3.zero;
+            return;
+        }
+
+        _velocity = Vector3.MoveTowards(_velocity, Vector3.zero, brakeForce * Time.deltaTime);
     }
 }

@@ -628,3 +628,4 @@ MonoBehaviour:
   _mass: 1
   _maxForce: 8
   _showSpeed: 0
+  _logSpeedToConsole: 0

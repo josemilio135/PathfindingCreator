@@ -105,8 +105,7 @@ public class AgentRunner : Steerings
 
     void FollowPath()
     {
-        if (_currentPath == null || _currentPath.Count == 0)
-            return;
+        if (_currentPath == null || _currentPath.Count == 0) return;
 
         if (_currentIndex >= _currentPath.Count)
         {
@@ -115,20 +114,25 @@ public class AgentRunner : Steerings
             return;
         }
 
+        if (HasReachedNode(_currentPath[_currentIndex].Position))
+        {
+            _currentIndex++;
+
+            if (_currentIndex >= _currentPath.Count)
+            {
+                StopMovement();
+                OnDestinationReached?.Invoke();
+                return;
+            }
+        }
+
         float remainingDistance = RemainingPathDistance();
 
         if (StopDistance > 0f && remainingDistance <= StopDistance)
         {
             StopMovement();
             OnDestinationReached?.Invoke();
-            return;
         }
-
-        if (remainingDistance <= _slowDownDistance)
-            return;
-
-        if (HasReachedNode(_currentPath[_currentIndex].Position))
-            _currentIndex++;
     }
 
     protected override Vector3 CalculateSteering()
@@ -136,36 +140,36 @@ public class AgentRunner : Steerings
         if (_currentPath == null || _currentIndex >= _currentPath.Count)
             return Vector3.zero;
 
+        Vector3 targetPos = _currentPath[_currentIndex].Position;
+        targetPos.y = transform.position.y;
+
         float remainingDistance = RemainingPathDistance();
 
         if (remainingDistance <= _slowDownDistance)
         {
-            Vector3 direction = _currentPath[^1].Position - transform.position;
+            Vector3 direction = targetPos - transform.position;
 
             return SteeringCalculator.Arrive(
-                direction,
-                remainingDistance,
-                Controller.Velocity,
-                Controller.MaxSpeed,
-                _slowDownDistance);
+                direction, remainingDistance,
+                Controller.Velocity, Controller.MaxSpeed, _slowDownDistance);
         }
 
         return SteeringCalculator.Seek(
-            transform.position,
-            _currentPath[_currentIndex].Position,
-            Controller.Velocity,
-            Controller.MaxSpeed);
+            transform.position, targetPos,
+            Controller.Velocity, Controller.MaxSpeed);
     }
 
     float RemainingPathDistance()
     {
         if (_currentPath == null || _currentIndex >= _currentPath.Count) return 0f;
 
-        float distance = Vector3.Distance(transform.position, _currentPath[_currentIndex].Position);
+        float distance = Vector3.Distance(
+            transform.position, _currentPath[_currentIndex].Position);
 
         for (int i = _currentIndex; i < _currentPath.Count - 1; i++)
         {
-            distance += Vector3.Distance(_currentPath[i].Position, _currentPath[i + 1].Position);
+            distance += Vector3.Distance(
+                _currentPath[i].Position, _currentPath[i + 1].Position);
         }
 
         return distance;
