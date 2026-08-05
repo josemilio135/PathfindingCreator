@@ -4,7 +4,8 @@ using UnityEngine;
 public class FlockManager : MonoBehaviour
 {
     public static FlockManager Instance;
-    private void Awake()
+
+    void Awake()
     {
         if (Instance != null)
         {
@@ -13,7 +14,6 @@ public class FlockManager : MonoBehaviour
         }
         Instance = this;
     }
-
     readonly List<IFlockMember> _members = new();
 
     public void Register(IFlockMember member)
@@ -27,16 +27,16 @@ public class FlockManager : MonoBehaviour
     {
         float sqrRadius = radius * radius;
         int count = 0;
-
         for (int i = 0; i < _members.Count && count < buffer.Length; i++)
         {
             IFlockMember other = _members[i];
+
             if (other == null || other == self) continue;
+            if (other.GroupId != self.GroupId) continue;
 
             if ((other.Position - self.Position).sqrMagnitude <= sqrRadius)
                 buffer[count++] = other;
         }
-
         return count;
     }
 }

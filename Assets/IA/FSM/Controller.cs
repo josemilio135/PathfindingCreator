@@ -8,7 +8,7 @@ public abstract class Controller : MonoBehaviour
 
     protected StateMachine stateMachine;
 
-    private void Update()
+    protected virtual void Update()
     {
         stateMachine.Update();
     }

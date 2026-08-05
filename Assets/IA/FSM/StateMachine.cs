@@ -6,14 +6,15 @@ public class StateMachine
     public StateNode currentState;
 
     Dictionary<Type, StateNode> nodes = new();
-    
+
     HashSet<ITransition> anyTransition = new();
 
     public void Update()
     {
+        if (currentState == null) return;
+
         ITransition transition = GetTransition();
         if (transition != null) ChangeState(transition.To);
-
         currentState.State?.Update();
     }
     public void SetState(IState state)

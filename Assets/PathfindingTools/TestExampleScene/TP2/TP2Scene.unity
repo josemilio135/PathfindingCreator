@@ -11167,7 +11167,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 50ea0d6b8d6783f4d92e4f7dd6f1993a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetScene: TestPathfindingScene
+  targetScene: PathFindingFinal
   _nodesContainer: {fileID: 619837331}
 --- !u!1001 &1225310226
 PrefabInstance:
